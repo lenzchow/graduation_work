@@ -1,0 +1,22 @@
+# Private datasets and generated artifacts
+*/data/
+*/results/
+*/checkpoints/
+*/outputs/
+*/generate_data/*/
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.bin
+*.csv
+*.parquet
+*.db
+*.sqlite
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.env
