@@ -18,14 +18,14 @@ from typing import Iterable
 MODEL_LAYOUT = {
     "signaling": {
         "root": Path("SignalingTraj_exp/SignalingTraj"),
-        "split": "SignalingTraj",
+        "split": "SignalingTraj_exp/SignalingTraj",
         "min_length": 50,
         "max_length": 200,
         "generated_columns": 5,
     },
     "cost": {
         "root": Path("CoST-Diff_exp/CoST-Diff"),
-        "split": "CoST-Diff",
+        "split": "CoST-Diff_exp/CoST-Diff",
         "min_length": 10,
         "max_length": 60,
         "generated_columns": 6,
