@@ -535,7 +535,7 @@ def main():
     script_dir = Path(__file__).resolve().parent
     os.chdir(script_dir)
     repo_root = Path(__file__).resolve().parents[3]
-    split_root = repo_root / "privacy_eval" / "local" / "splits" / "CoST-Diff"
+    split_root = repo_root / "privacy_eval" / "local" / "splits" / "CoST-Diff_exp" / "CoST-Diff"
 
     embed_size = 128
     min_length, max_length = 10, 60
