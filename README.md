@@ -68,3 +68,33 @@ The report compares generated station sequences with the matching operator's tra
 ## Data protection boundary
 
 No raw trajectory or base-station CSV is committed by this repository. Do not add `privacy_eval/local/`, `original_data/`, generated artifacts, or `membership_map.csv` to Git. Keep `membership_map.csv` on the private server; it contains user and day identifiers.
+
+
+## Re-run after preprocessing is already complete
+
+The privacy split and model artifacts are already prepared on the server. Do **not** rerun `prepare_all_splits.sh` or either preprocessor unless you intentionally want to replace the current split/artifacts. The combined runner below only checks the saved split, audits the available artifacts, trains, generates, and evaluates:
+
+```bash
+cd /workspace/traj_generation/graduation_paper_exp/privacy-risk-evaluation-prep-updated
+git pull origin privacy-risk-evaluation-prep
+conda activate st_new
+bash privacy_eval/run_train_generate_evaluate.sh
+```
+
+Optional selections (defaults are both models and all three operators):
+
+```bash
+MODELS="signaling" OPERATORS="operator0" EMBED_MODE="vgae" bash privacy_eval/run_train_generate_evaluate.sh
+```
+
+Implemented checks in this runner:
+- release-level spatial overlap and the existing black-box similarity MIA probe;
+- temporal nearest-sequence similarity against train and holdout trajectories;
+- CoST-Diff condition-source attribution, using a per-generation JSONL manifest;
+- SignalingTraj graph edge and embedding-dimension audit.
+
+The condition-source check requires a **new generation run** after pulling this branch; it does not require repeating preprocessing. It reports attribution to the sampled condition-source trajectory, not a user identity. The graph audit checks graph edges against training transitions and checks embedding dimensions. The current legacy embedding files have no provenance manifest, so the audit cannot independently prove which exact transitions were used to fit the embedding.
+
+White-box MIA is not yet implemented as a valid per-trajectory attack. Both model implementations need a verified per-sample scoring interface and a matching holdout-input path before reporting white-box results. Do not interpret batch-average training loss as a per-trajectory membership score. The runner performs a Python syntax preflight before training and stops if the checked model scripts do not parse.
+
+All reports and source manifests are written under ignored `privacy_eval/local/`; keep them on the private server.
