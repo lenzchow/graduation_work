@@ -18,7 +18,7 @@ model_root() {
 }
 
 split_model() {
-    case "$1" in signaling) printf 'SignalingTraj\n' ;; cost) printf 'CoST-Diff\n' ;; esac
+    case "$1" in signaling) printf 'SignalingTraj_exp/SignalingTraj\n' ;; cost) printf 'CoST-Diff_exp/CoST-Diff\n' ;; esac
 }
 
 preflight_python() {
