@@ -1,26 +1,39 @@
 # CoST-Diff processing record
 
-## What changed
+## Changes
 
-- Moved the original code tree to CoST-Diff_exp/CoST-Diff; model behavior is unchanged.
-- Added a deterministic user-day split tool and a separate split audit in privacy_eval/.
-- Added a whole-user split option for later user-level MIA.
-- Expanded .gitignore for private data, membership maps, caches, checkpoints, and outputs.
-- Added a baselines/ placeholder for future baseline code.
+- Added deterministic 80/20 user-day splitting stratified by exact trajectory length, using the existing CoST-Diff geographic bounds and length range.
+- Saved train and holdout trajectories, per-partition station tables, length counts, a split manifest, and a local membership map.
+- Changed preprocessing to read only training partitions and rebuild station indexes, transition graphs, embeddings, sequence files, and length distribution from training rows.
+- Bypassed the old full-data `handled_data` cache in the new main preprocessing path.
+- Preserved station IDs as strings when reading CSV files to avoid ID coercion.
+- Added a batch preparation script and a user-day overlap audit.
 
-## Split commands
+## Server workflow
 
-Run from the repository root, separately for each operator source file:
+From the repository root:
 
-    python privacy_eval/split_trajectories.py --input /private/path/traj_1.csv --output-dir /private/path/privacy_eval/operator1 --grouping user-day --train-ratio 0.8 --seed 42
-    python privacy_eval/audit_split.py --train /private/path/privacy_eval/operator1/train.csv --holdout /private/path/privacy_eval/operator1/holdout.csv --grouping user-day
+```bash
+bash privacy_eval/prepare_all_splits.sh
+(cd CoST-Diff_exp/CoST-Diff/preprocess_data && python preprocess.py)
+```
 
-Use grouping=user in a separate directory for a user-disjoint split. membership_map.csv contains identifiers and must remain on the private server.
+Then train and generate from the model root:
 
-## Processing boundary
+```bash
+cd CoST-Diff_exp/CoST-Diff
+python multi_main.py --dataset operator0
+python generate_data.py --dataset operator0
+```
 
-These scripts prepare and audit the split; they do not run training. Use an isolated working copy of CoST-Diff and preprocess only train.csv. Do not reuse handled_data caches or artifacts created from the full dataset. Rebuild base-station vocabularies, the transition graph, embeddings, frequency tables, temporal statistics, and length distributions using training data only. Reserve holdout.csv for attack and exposure checks.
+Repeat the train and generation commands for `operator1` and `operator3`.
 
-## Status and limitation
+## Data boundary
 
-No raw data is present in the repository. The local terminal process could not start in this session, so no split, preprocessing, training, or runtime verification was performed. Before using the results, run the scripts on the server and verify the audit report.
+Preprocessing reads only `privacy_eval/local/splits/CoST-Diff/operatorX/train.csv` and `base_station_train.csv`. Holdout files remain untouched for later evaluation. `membership_map.csv` contains identifiers; keep it on the private server and never commit it.
+
+CoST-Diff's training `length_distri.npy` is derived only from training trajectories. The companion `length_distribution.csv` records train and holdout counts by length for evaluation analysis.
+
+## Verification limits
+
+The repository was updated and reviewed through GitHub. This session could not start a local terminal and did not access the school server, so splitting, preprocessing, GPU training, and model generation have not been executed here. Run the commands above on the server and inspect each `split_audit.json` before training.
