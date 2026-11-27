@@ -1,12 +1,15 @@
-# Trajectory generation code
+# Trajectory generation projects
 
-This repository contains source code for two trajectory-generation projects:
+Source code is organized under separate experiment roots:
 
-- `SignalingTraj/` — signaling-trajectory generation.
-- `CoST-Diff/` — spatiotemporal trajectory generation.
+- SignalingTraj_exp/SignalingTraj: SignalingTraj model.
+- CoST-Diff_exp/CoST-Diff: CoST-Diff model.
+- Each experiment root has a baselines/ directory for baseline implementations.
 
-## Data and artifacts
+The privacy_eval/ directory contains a deterministic split tool and an independent audit. By default it keeps each c_number + c_day trajectory intact. Use grouping=user for a whole-user holdout. The recommended starting point is 80% train, 20% holdout, seed 42.
 
-Private datasets, processed trajectory files, model checkpoints, and generated outputs are intentionally not included. Place data in each project’s local `data/<dataset-name>/` directory, following the paths expected by that project. The repository `.gitignore` excludes these data and output paths.
+Run separately for each operator file when the raw files are separated by operator:
+python privacy_eval/split_trajectories.py --input /private/path/traj_1.csv --output-dir /private/path/privacy_eval/operator1 --grouping user-day --train-ratio 0.8 --seed 42
+python privacy_eval/audit_split.py --train /private/path/privacy_eval/operator1/train.csv --holdout /private/path/privacy_eval/operator1/holdout.csv --grouping user-day
 
-The code may require environment-specific adjustment before running. See each project’s `requirements.txt` and source entry points.
+The scripts do not upload or bundle data. Split CSVs and membership maps contain private records and are ignored by Git. Model preprocessing must be run from an isolated workspace using only train.csv; rebuild every trajectory-derived artifact from that partition. Reserve holdout.csv for attack and exposure evaluation.

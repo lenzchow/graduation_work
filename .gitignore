@@ -1,9 +1,18 @@
-# Private datasets and generated artifacts
-*/data/
-*/results/
-*/checkpoints/
-*/outputs/
-*/generate_data/*/
+# Private datasets, split files, mappings, and generated artifacts
+**/data/
+**/original_data/
+**/handled_data/
+**/results/
+**/checkpoints/
+**/outputs/
+**/generate_data/
+**/privacy_eval/local/
+**/privacy_eval/runs/
+**/privacy_eval/splits/
+**/membership_map.csv
+**/split_manifest.json
+**/split_audit.json
+**/artifact_manifest.json
 *.pt
 *.pth
 *.ckpt
