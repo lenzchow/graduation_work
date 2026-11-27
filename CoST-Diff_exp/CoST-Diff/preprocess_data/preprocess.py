@@ -53,6 +53,8 @@ import json
 import copy
 import pickle
 import time
+import shutil
+from pathlib import Path
 from datetime import datetime
 
 import numpy as np
@@ -540,24 +542,50 @@ def get_processed_or_build_single(op_id, df_traj, df_bs,
 
 
 def main():
+    script_dir = Path(__file__).resolve().parent
+    os.chdir(script_dir)
+    repo_root = Path(__file__).resolve().parents[3]
+    split_root = repo_root / "privacy_eval" / "local" / "splits" / "CoST-Diff"
+
     embed_size = 128
     min_length, max_length = 10, 60
+    prepared = 0
 
-    for i in ['0', '1', '3']:
-        df_traj = pd.read_csv(f'./original_data/traj_{i}.csv')
-        df_bs = pd.read_csv(f'./original_data/base_station_{i}.csv')
+    for operator in ("0", "1", "3"):
+        split_dir = split_root / f"operator{operator}"
+        train_path = split_dir / "train.csv"
+        station_path = split_dir / "base_station_train.csv"
+        if not train_path.is_file() or not station_path.is_file():
+            raise FileNotFoundError(
+                f"Missing train split for operator{operator}; run privacy_eval/split_trajectories.py first"
+            )
 
+        df_traj = pd.read_csv(train_path)
+        df_bs = pd.read_csv(station_path)
         df_bs = filter_bs_in_box(df_bs)
 
-        df_t, df_b = get_processed_or_build_single(
-            i, df_traj, df_bs, min_length, max_length
+        df_t, df_b = traj_station_preprocess_single(
+            df_traj, df_bs, min_length, max_length
         )
+        if df_t.empty or df_b.empty:
+            print(f"Skipping operator{operator}: no eligible training trajectories or stations")
+            continue
 
-        tag = f'operator{i}'
+        tag = f"operator{operator}"
+        data_root = Path("../data") / tag
+        if data_root.exists():
+            shutil.rmtree(data_root)
+        (data_root / "extra_file").mkdir(parents=True, exist_ok=True)
+        (data_root / "graph").mkdir(parents=True, exist_ok=True)
+
         extra_file(df_b, tag)
         create_graph(df_t, tag)
         gen_all(df_t, tag, min_length, max_length)
         road_embed(df_t, df_b, embed_size, tag)
+        prepared += 1
+
+    if prepared == 0:
+        raise RuntimeError("No operator artifacts were produced from the training splits")
 
 
 if __name__ == "__main__":
