@@ -280,9 +280,6 @@ def main() -> int:
         # Verify partition disjointness and that every eligible trajectory was assigned once.
         if len(assignments) != sum(manifest["trajectory_counts"].values()):
             raise RuntimeError("Trajectory assignment validation failed")
-        if station_sets["train"] & station_sets["holdout"] and not station_sets["train"]:
-            raise RuntimeError("Unexpected station-set validation failure")
-
         if output_dir.exists():
             shutil.rmtree(output_dir)
         os.replace(temp_dir, output_dir)
