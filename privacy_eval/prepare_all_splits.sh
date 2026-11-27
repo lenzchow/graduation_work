@@ -46,7 +46,7 @@ prepare_model() {
     done
 }
 
-prepare_model "SignalingTraj_exp/SignalingTraj" 1 12000 signaling
+prepare_model "SignalingTraj_exp/SignalingTraj" 50 200 signaling
 prepare_model "CoST-Diff_exp/CoST-Diff" 10 60 cost
 
 echo "All six splits and user-day audits completed."
