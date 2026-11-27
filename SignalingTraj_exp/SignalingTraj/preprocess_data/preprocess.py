@@ -412,10 +412,10 @@ def main():
     script_dir = Path(__file__).resolve().parent
     os.chdir(script_dir)
     repo_root = Path(__file__).resolve().parents[3]
-    split_root = repo_root / "privacy_eval" / "local" / "splits" / "SignalingTraj"
+    split_root = repo_root / "privacy_eval" / "local" / "splits" / "SignalingTraj_exp" / "SignalingTraj"
 
     embed_size = 64
-    min_length, max_length = 1, 12000
+    min_length, max_length = 50, 200
     trajectory_parts = []
     station_parts = []
 
