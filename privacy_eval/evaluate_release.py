@@ -85,7 +85,7 @@ def read_real_trajectories(
             station = (row.get("c_uli") or "").strip()
             user = (row.get("c_number") or "").strip()
             day = (row.get("c_day") or "").strip()
-            if station not in station_vocabulary or not user or not day:
+            if not station or not user or not day:
                 continue
             timestamp = numeric(row.get("c_timestamp", ""), "c_timestamp", path, row_number)
             groups[(user, day)].append((timestamp, row_number, station))
@@ -94,7 +94,7 @@ def read_real_trajectories(
     for rows in groups.values():
         rows.sort(key=lambda item: (item[0], item[1]))
         sequence = tuple(item[2] for item in rows)
-        if min_length <= len(sequence) <= max_length:
+        if min_length <= len(sequence) <= max_length and set(sequence).issubset(station_vocabulary):
             trajectories.append(sequence)
     return trajectories
 
