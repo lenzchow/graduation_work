@@ -6,9 +6,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import pickle
 import random
 import statistics
-import pickle
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,13 +60,18 @@ def main() -> int:
     args = parser.parse_args()
 
     generated = read_generated(args.generated_dir)
-    manifest_rows = [json.loads(line) for line in args.manifest.read_text(encoding="utf-8").splitlines() if line.strip()]
+    manifest_rows = [
+        json.loads(line)
+        for line in args.manifest.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     with args.index_seqs.open("rb") as stream:
         source_buckets = pickle.load(stream)
 
     rng = random.Random(args.seed)
     exact = []
     source_scores = []
+    strict_top1 = []
     top1_or_tied = []
     missing = 0
     bucket_samples = defaultdict(list)
@@ -77,31 +82,33 @@ def main() -> int:
         length = int(row["length"])
         source_index = int(row["source_bucket_index"])
         source_list = source_buckets.get(length, [])
-        if output_seq is None or source_index >= len(source_list):
+        if output_seq is None or source_index < 0 or source_index >= len(source_list):
             missing += 1
             continue
+
         source_seq = tuple(int(x) for x in source_list[source_index])
-        exact.append(output_seq == source_seq)
         source_score = transition_jaccard(output_seq, source_seq)
+        exact_match = output_seq == source_seq
+
+        pool = list(range(len(source_list)))
+        if len(pool) > args.max_candidates:
+            pool = sorted(set(rng.sample(pool, args.max_candidates)) | {source_index})
+        other_scores = [
+            transition_jaccard(output_seq, tuple(int(x) for x in source_list[i]))
+            for i in pool if i != source_index
+        ]
+        best_other = max(other_scores, default=-1.0)
+        strict = source_score > best_other
+        tied = source_score >= best_other
+
+        exact.append(exact_match)
         source_scores.append(source_score)
-
-        candidates = list(range(len(source_list)))
-        if len(candidates) > args.max_candidates:
-            chosen = set(rng.sample(candidates, args.max_candidates))
-            chosen.add(source_index)
-            candidates = sorted(chosen)
-        scores = [transition_jaccard(output_seq, tuple(int(x) for x in source_list[i])) for i in candidates]
-        top_score = max(scores) if scores else source_score
-        top1_or_tied.append(source_score >= top_score)
-
-        bucket_samples[length].append({
-            "exact_sequence_match": output_seq == source_seq,
-            "source_transition_jaccard": source_score,
-            "source_top1_or_tied": source_score >= top_score,
-        })
+        strict_top1.append(strict)
+        top1_or_tied.append(tied)
+        bucket_samples[length].append((exact_match, source_score, strict, tied))
 
     if not exact:
-        raise ValueError("No manifest entries could be matched to generated output blocks and source buckets")
+        raise ValueError("No manifest entries matched generated blocks and source sequence buckets")
 
     report = {
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -112,21 +119,23 @@ def main() -> int:
         "unmatched_manifest_rows": missing,
         "exact_source_sequence_match_rate": sum(exact) / len(exact),
         "mean_source_transition_jaccard": statistics.fmean(source_scores),
-        "source_top1_or_tied_rate_against_sampled_same_length_pool": sum(top1_or_tied) / len(top1_or_tied),
-        "candidate_pool_limit": args.max_candidates,
+        "source_strict_top1_rate_against_sampled_same_length_decoys": sum(strict_top1) / len(strict_top1),
+        "source_top1_or_tied_rate_against_sampled_same_length_decoys": sum(top1_or_tied) / len(top1_or_tied),
+        "candidate_pool_limit_including_source": args.max_candidates,
         "by_length": {
             str(length): {
                 "count": len(values),
-                "exact_match_rate": sum(x["exact_sequence_match"] for x in values) / len(values),
-                "mean_source_transition_jaccard": statistics.fmean(x["source_transition_jaccard"] for x in values),
-                "source_top1_or_tied_rate": sum(x["source_top1_or_tied"] for x in values) / len(values),
+                "exact_match_rate": sum(x[0] for x in values) / len(values),
+                "mean_source_transition_jaccard": statistics.fmean(x[1] for x in values),
+                "source_strict_top1_rate": sum(x[2] for x in values) / len(values),
+                "source_top1_or_tied_rate": sum(x[3] for x in values) / len(values),
             }
             for length, values in sorted(bucket_samples.items())
         },
         "interpretation": (
-            "This measures whether an output can be associated with the trajectory sampled to supply its "
-            "conditions. It does not establish that the output has a unique source or identifies a person. "
-            "Top-1 is reported with ties included and against a sampled same-length candidate pool."
+            "This measures association with the trajectory sampled to supply conditions. It does not "
+            "establish a unique source for arbitrary generated data or identify a person. Top-1 is compared "
+            "with sampled same-length decoys; report tied and strict rates separately."
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
