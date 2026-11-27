@@ -106,7 +106,7 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
-    split = repo_root / "privacy_eval/local/splits/SignalingTraj" / args.operator / "train.csv"
+    split = repo_root / "privacy_eval/local/splits/SignalingTraj_exp/SignalingTraj" / args.operator / "train.csv"
     data = args.model_root / "data" / args.operator
     station_map_path = data / "extra_file/uli_index_dict.json"
     graph_path = data / "graph/graph_A.csv"
