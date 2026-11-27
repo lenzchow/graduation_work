@@ -46,7 +46,7 @@ def touli(index_uli_dict,
                 lat, lon = index_lat_lon_dict.get(str(rid.item()),rid)[0], index_lat_lon_dict.get(str(rid.item()),rid)[1]
                 if rid >= parameters.id_size: continue #parameters.id_size:continue
                 
-                f.write("{}, {}, {}, {}, {}\n".format(areacode, lat, lon, rid, time))
+                f.write("{}, {}, {}, {}, {}\n".format(areacode, lat, lon, int(rid.item()), float(time.item())))
             # print("----------------")
     return seqs
 
