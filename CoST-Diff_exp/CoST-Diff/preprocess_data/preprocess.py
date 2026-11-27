@@ -560,8 +560,8 @@ def main():
                 f"Missing train split for operator{operator}; run privacy_eval/split_trajectories.py first"
             )
 
-        df_traj = pd.read_csv(train_path)
-        df_bs = pd.read_csv(station_path)
+        df_traj = pd.read_csv(train_path, dtype={"c_uli": str})
+        df_bs = pd.read_csv(station_path, dtype={"c_uli": str})
         df_bs = filter_bs_in_box(df_bs)
 
         df_t, df_b = traj_station_preprocess_single(
