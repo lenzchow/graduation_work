@@ -259,7 +259,7 @@ def generate_data(model,
                             "generated_index": file_start + offset,
                             "length": curr_length,
                             "source_bucket_index": int(source_index)
-                        }, ensure_ascii=False) + "\\n")
+                        }, ensure_ascii=False) + "\n")
                 written_count_by_length[i] = file_start + len(source_indices)
 
                 # 4. 更新剩余要生成的数量
