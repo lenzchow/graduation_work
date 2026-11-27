@@ -4,9 +4,11 @@
 
 - Added deterministic 80/20 user-day splitting stratified by exact trajectory length, using the existing CoST-Diff geographic bounds and length range.
 - Saved train and holdout trajectories, per-partition station tables, length counts, a split manifest, and a local membership map.
-- Changed preprocessing to read only training partitions and rebuild station indexes, transition graphs, embeddings, sequence files, and length distribution from training rows.
+- Changed preprocessing to build station indexes, transition graphs, embeddings, sequence files, and training length counts from training rows only.
 - Bypassed the old full-data `handled_data` cache in the new main preprocessing path.
-- Preserved station IDs as strings when reading CSV files to avoid ID coercion.
+- Fixed the embedding transition list so it counts only within-trajectory transitions; it no longer invents an edge between consecutive rows in the dataframe.
+- Preserved station IDs as strings when reading CSV files.
+- The preprocessor reads holdout rows only to count eligible lengths after applying the training station vocabulary. It stores train and holdout histograms separately and sets the active generation histogram to the holdout counts, matching generated sample counts and lengths to the evaluation set.
 - Added a batch preparation script and a user-day overlap audit.
 
 ## Server workflow
@@ -30,9 +32,9 @@ Repeat the train and generation commands for `operator1` and `operator3`.
 
 ## Data boundary
 
-Preprocessing reads only `privacy_eval/local/splits/CoST-Diff/operatorX/train.csv` and `base_station_train.csv`. Holdout files remain untouched for later evaluation. `membership_map.csv` contains identifiers; keep it on the private server and never commit it.
+Training sequences, station vocabularies, transition graphs, and embeddings use training data only. Holdout sequences, identifiers, and transitions are not used to build those model artifacts. Holdout is read only to calculate the aggregate generation length schedule; it does not supply generated locations or conditions. `membership_map.csv` contains identifiers; keep it on the private server and never commit it.
 
-CoST-Diff's training `length_distri.npy` is derived only from training trajectories. The companion `length_distribution.csv` records train and holdout counts by length for evaluation analysis.
+CoST-Diff uses lengths 10–60 and its existing bounding box. The active `length_distri.npy` matches the filtered holdout length histogram; `length_distri_train.npy` remains available for comparison. Never reuse full-data `data/` or `handled_data/` artifacts.
 
 ## Verification limits
 
