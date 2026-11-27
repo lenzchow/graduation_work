@@ -145,7 +145,8 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[1]
-    split_model = "SignalingTraj" if args.model == "signaling" else "CoST-Diff"
+    split_model = ("SignalingTraj_exp/SignalingTraj" if args.model == "signaling"
+                   else "CoST-Diff_exp/CoST-Diff")
     split_dir = repo_root / "privacy_eval" / "local" / "splits" / split_model / args.operator
     train = read_real(split_dir / "train.csv")
     holdout = read_real(split_dir / "holdout.csv")
