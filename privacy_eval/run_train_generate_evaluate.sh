@@ -1,3 +1,4 @@
+/Users/zoulinzi/.zprofile:3: no such file or directory: /usr/local/Homebrew/bin/brew
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -25,6 +26,57 @@ model_root() {
 
 split_model() {
     case "$1" in signaling) printf 'SignalingTraj_exp/SignalingTraj\n' ;; cost) printf 'CoST-Diff_exp/CoST-Diff\n' ;; esac
+}
+
+ensure_preprocessed() {
+    local model="$1" root
+    root="$(model_root "$model")"
+    local missing=0
+
+    for operator in $OPERATORS; do
+        local data="$root/data/$operator"
+        local required=(
+            "$data/graph/graph_A.csv"
+            "$data/graph/road_embed_$EMBED_MODE.txt"
+            "$data/extra_file/uli_index_dict.json"
+            "$data/extra_file/index_uli_dict.json"
+            "$data/extra_file/index_areacode_dict.json"
+            "$data/extra_file/index_lat_lon_dict.json"
+            "$data/gen_all/index_seqs.bin"
+            "$data/gen_all/tim_seqs.bin"
+            "$data/gen_all/sta_seqs.bin"
+            "$data/gen_all/length_distri.npy"
+        )
+        if [[ "$model" == "cost" ]]; then
+            required+=(
+                "$data/extra_file/bs_feat.npy"
+                "$data/gen_all/slot_seqs.bin"
+                "$data/gen_all/seq_cond.bin"
+            )
+        fi
+        for artifact in "${required[@]}"; do
+            if [[ ! -s "$artifact" ]]; then
+                echo "Missing training artifact: $artifact"
+                missing=1
+            fi
+        done
+    done
+
+    if (( missing )); then
+        echo "== Preparing $model graph, embeddings, and model inputs from the existing splits =="
+        "$PYTHON_BIN" "$root/preprocess_data/preprocess.py"
+    else
+        echo "== Reusing existing $model preprocessing artifacts =="
+    fi
+
+    for operator in $OPERATORS; do
+        local data="$root/data/$operator"
+        [[ -s "$data/graph/graph_A.csv" && -s "$data/graph/road_embed_$EMBED_MODE.txt" && \
+           -s "$data/gen_all/index_seqs.bin" && -s "$data/gen_all/length_distri.npy" ]] || {
+            echo "Preprocessing did not produce the required artifacts for $model / $operator under $data." >&2
+            exit 1
+        }
+    done
 }
 
 preflight_python() {
@@ -76,11 +128,17 @@ for model in $MODELS; do
     done
 done
 
+# Build graphs, embeddings, and model input files from the already-created
+# training/holdout splits. Do not rerun or overwrite the split files here.
+for model in $MODELS; do
+    ensure_preprocessed "$model"
+done
+
 for model in $MODELS; do
     root="$(model_root "$model")"
     for operator in $OPERATORS; do
         split_dir="$ROOT/privacy_eval/local/splits/$(split_model "$model")/$operator"
-        echo "== $model / $operator: preprocessing is preserved; begin training =="
+        echo "== $model / $operator: split and preprocessing artifacts are ready; begin training =="
 
         if [[ "$model" == "signaling" ]]; then
             graph_report="$REPORT_DIR/signaling_graph_${operator}.json"

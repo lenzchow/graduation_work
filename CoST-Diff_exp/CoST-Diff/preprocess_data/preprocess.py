@@ -1,3 +1,4 @@
+/Users/zoulinzi/.zprofile:3: no such file or directory: /usr/local/Homebrew/bin/brew
 from collections import Counter
 """
 ====================================================
@@ -248,6 +249,20 @@ def extra_file(df_bs, operator):
 
     index_uli_dict = {v: k for k, v in uli_index_dict.items()}
     json.dump(index_uli_dict, open(f'{base_dir}/index_uli_dict.json', 'w'), indent=2)
+
+    index_areacode_dict = {
+        str(index): str(value)
+        for index, value in enumerate(df_bs['c_areacode'].tolist())
+    }
+    json.dump(index_areacode_dict,
+              open(f'{base_dir}/index_areacode_dict.json', 'w'), indent=2)
+
+    index_lat_lon_dict = {
+        str(index): [float(row['c_lat']), float(row['c_lon'])]
+        for index, (_, row) in enumerate(df_bs.iterrows())
+    }
+    json.dump(index_lat_lon_dict,
+              open(f'{base_dir}/index_lat_lon_dict.json', 'w'), indent=2)
 
     build_bs_feat_with_map(df_bs, base_dir, uli_index_dict)
 
