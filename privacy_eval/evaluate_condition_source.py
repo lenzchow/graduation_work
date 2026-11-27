@@ -97,14 +97,14 @@ def main() -> int:
             transition_jaccard(output_seq, tuple(int(x) for x in source_list[i]))
             for i in pool if i != source_index
         ]
-        best_other = max(other_scores, default=-1.0)
-        strict = source_score > best_other
-        tied = source_score >= best_other
+        strict = source_score > max(other_scores) if other_scores else None
+        tied = source_score >= max(other_scores) if other_scores else None
 
         exact.append(exact_match)
         source_scores.append(source_score)
-        strict_top1.append(strict)
-        top1_or_tied.append(tied)
+        if strict is not None:
+            strict_top1.append(strict)
+            top1_or_tied.append(tied)
         bucket_samples[length].append((exact_match, source_score, strict, tied))
 
     if not exact:
@@ -119,16 +119,26 @@ def main() -> int:
         "unmatched_manifest_rows": missing,
         "exact_source_sequence_match_rate": sum(exact) / len(exact),
         "mean_source_transition_jaccard": statistics.fmean(source_scores),
-        "source_strict_top1_rate_against_sampled_same_length_decoys": sum(strict_top1) / len(strict_top1),
-        "source_top1_or_tied_rate_against_sampled_same_length_decoys": sum(top1_or_tied) / len(top1_or_tied),
+        "samples_with_at_least_one_decoy": len(strict_top1),
+        "source_strict_top1_rate_against_sampled_same_length_decoys": sum(strict_top1) / len(strict_top1) if strict_top1 else None,
+        "source_top1_or_tied_rate_against_sampled_same_length_decoys": sum(top1_or_tied) / len(top1_or_tied) if top1_or_tied else None,
         "candidate_pool_limit_including_source": args.max_candidates,
         "by_length": {
             str(length): {
                 "count": len(values),
                 "exact_match_rate": sum(x[0] for x in values) / len(values),
                 "mean_source_transition_jaccard": statistics.fmean(x[1] for x in values),
-                "source_strict_top1_rate": sum(x[2] for x in values) / len(values),
-                "source_top1_or_tied_rate": sum(x[3] for x in values) / len(values),
+                "rankable_count": sum(x[2] is not None for x in values),
+                "source_strict_top1_rate": (
+                    sum(x[2] for x in values if x[2] is not None) /
+                    sum(x[2] is not None for x in values)
+                    if any(x[2] is not None for x in values) else None
+                ),
+                "source_top1_or_tied_rate": (
+                    sum(x[3] for x in values if x[3] is not None) /
+                    sum(x[3] is not None for x in values)
+                    if any(x[3] is not None for x in values) else None
+                ),
             }
             for length, values in sorted(bucket_samples.items())
         },
