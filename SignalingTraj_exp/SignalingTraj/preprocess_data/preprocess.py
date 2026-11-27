@@ -437,8 +437,8 @@ def main():
             raise FileNotFoundError(
                 f"Missing train split for operator{operator}; run privacy_eval/split_trajectories.py first"
             )
-        trajectory_parts.append(pd.read_csv(train_path))
-        station_parts.append(pd.read_csv(station_path))
+        trajectory_parts.append(pd.read_csv(train_path, dtype={"c_uli": str}))
+        station_parts.append(pd.read_csv(station_path, dtype={"c_uli": str}))
 
     df_train = pd.concat(trajectory_parts, ignore_index=True)
     df_stations = pd.concat(station_parts, ignore_index=True)
