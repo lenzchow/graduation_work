@@ -10,6 +10,7 @@
 - Preserved station IDs as strings when reading CSV files.
 - The preprocessor reads holdout rows only to count eligible lengths after applying the training station vocabulary. It stores train and holdout histograms separately and sets the active generation histogram to the holdout counts, matching generated sample counts and lengths to the evaluation set.
 - Added a batch preparation script and a user-day overlap audit.
+- Generation now uses exact integer counts from the active length histogram and skips empty length bins.
 
 ## Server workflow
 
