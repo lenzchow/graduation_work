@@ -422,10 +422,11 @@ def main():
     for operator in ("0", "1", "3"):
         split_dir = split_root / f"operator{operator}"
         train_path = split_dir / "train.csv"
+        holdout_path = split_dir / "holdout.csv"
         station_path = split_dir / "base_station_train.csv"
-        if not train_path.is_file() or not station_path.is_file():
+        if not train_path.is_file() or not holdout_path.is_file() or not station_path.is_file():
             raise FileNotFoundError(
-                f"Missing train split for operator{operator}; run privacy_eval/split_trajectories.py first"
+                f"Missing split files for operator{operator}; run privacy_eval/prepare_all_splits.sh first"
             )
         trajectory_parts.append(pd.read_csv(train_path, dtype={"c_uli": str}))
         station_parts.append(pd.read_csv(station_path, dtype={"c_uli": str}))
@@ -460,6 +461,25 @@ def main():
         extra_file(df_bs, tag)
         create_graph(df_traj, tag)
         gen_all(df_traj, tag)
+        gen_dir = data_root / "gen_all"
+        train_length_distribution = np.load(gen_dir / "length_distri.npy")
+        np.save(gen_dir / "length_distri_train.npy", train_length_distribution)
+
+        holdout = pd.read_csv(holdout_path, dtype={"c_uli": str})
+        holdout = holdout[holdout["c_uli"].isin(set(df_bs["c_uli"].astype(str)))]
+        holdout_lengths = holdout.groupby(["c_number", "c_day"]).size()
+        holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
+        for length, count in holdout_lengths.items():
+            if min_length <= length <= max_length:
+                holdout_distribution[int(length)] = int(count)
+        if holdout_distribution.sum() == 0:
+            raise RuntimeError(
+                f"No eligible holdout trajectories remain for operator{operator} "
+                "after applying the training station vocabulary"
+            )
+        np.save(gen_dir / "length_distri_holdout.npy", holdout_distribution)
+        np.save(gen_dir / "length_distri.npy", holdout_distribution)
+
         road_embed(df_traj, df_bs, embed_size, tag)
         prepared += 1
 
