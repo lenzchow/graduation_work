@@ -87,6 +87,9 @@ for model in $MODELS; do
         python "$ROOT/privacy_eval/evaluate_temporal_exposure.py" \
             --model "$model" --operator "$operator" --generated-dir "$generated_dir" \
             --output "$REPORT_DIR/${model}_${operator}_temporal_${report_tag}.json"
+        python "$ROOT/privacy_eval/evaluate_spatial_near_duplicates.py" \
+            --model "$model" --operator "$operator" --generated-dir "$generated_dir" \
+            --output "$REPORT_DIR/${model}_${operator}_spatial_near_duplicates_${report_tag}.json"
 
         if [[ "$model" == "cost" ]]; then
             time_tag="${generated_dir##*curTime}"
