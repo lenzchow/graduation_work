@@ -181,13 +181,12 @@ def generate_data(model,
         start_length = non_zero_indices[0] if non_zero_indices.size > 0 else None
         end_length = non_zero_indices[-1] if non_zero_indices.size > 0 else None
         
-    traj_all_num = int(length2num.sum())
 
     with torch.no_grad():  # this line can help speed up evaluation
         for i in tqdm(range(start_length, end_length+1)):
             
             curr_length =i
-            curr_batch = int(length2num[i] / length2num.sum() * traj_all_num)
+            curr_batch = int(length2num[i])
 
             while True:
                 if curr_batch > 256:
