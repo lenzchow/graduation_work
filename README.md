@@ -25,14 +25,16 @@ The splitter uses the static station table to remove unknown station IDs. CoST-D
 
 ## Build model artifacts from training data
 
-After the split script completes, rebuild each model's preprocessing artifacts from the training partition only:
+After the split script completes, rebuild each model's preprocessing artifacts:
 
 ```bash
 (cd SignalingTraj_exp/SignalingTraj/preprocess_data && python preprocess.py)
 (cd CoST-Diff_exp/CoST-Diff/preprocess_data && python preprocess.py)
 ```
 
-This rebuilds station indexes, transition graphs, embeddings, sequence files, and `length_distri.npy` from training records. The holdout CSV and holdout station table are saved for evaluation but are not read by preprocessing or training. Do not reuse full-data `data/` or `handled_data/` artifacts.
+Station vocabularies, transition graphs, embeddings, and sequence files are rebuilt from training records only. The preprocessor reads holdout rows only to count eligible trajectory lengths after applying the training station vocabulary; it does not use holdout sequences, IDs, coordinates, or transitions to build model artifacts. It saves `length_distri_train.npy` and `length_distri_holdout.npy`; the active `length_distri.npy` is set to the holdout counts so the generated sample count and length distribution match the evaluation set. The generation entry points read this active file. This is an evaluation sampling schedule, not a model-learned statistic.
+
+Do not reuse full-data `data/` or `handled_data/` artifacts. The preprocessing scripts clear and rebuild each operator's derived `data/operatorX/` directory.
 
 ## Train and generate
 
@@ -44,8 +46,6 @@ python generate_data.py --dataset operator0
 ```
 
 Repeat with `operator1` and `operator3`. The existing entry points read the rebuilt artifacts under `data/operatorX/`.
-
-The training `length_distri.npy` is derived from training trajectories to avoid using holdout records to construct model artifacts. The split output's `length_distribution.csv` reports train and holdout counts by length for analysis.
 
 ## Data protection boundary
 
