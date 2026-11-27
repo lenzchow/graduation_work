@@ -47,6 +47,24 @@ python generate_data.py --dataset operator0
 
 Repeat with `operator1` and `operator3`. The existing entry points read the rebuilt artifacts under `data/operatorX/`.
 
+## Evaluate a generated release
+
+After the split-based preprocessing, training, and generation have completed, list generated output directories and choose the exact run directory for the matching operator:
+
+```bash
+find SignalingTraj_exp/SignalingTraj/generate_data -mindepth 1 -maxdepth 1 -type d -print
+find CoST-Diff_exp/CoST-Diff/generate_data -mindepth 1 -maxdepth 1 -type d -print
+```
+
+Run the release-level checks from the repository root. Replace `<run-directory>` with one exact directory printed above:
+
+```bash
+python privacy_eval/evaluate_release.py --model signaling --operator operator0 --generated-dir 'SignalingTraj_exp/SignalingTraj/generate_data/<run-directory>' --output privacy_eval/local/reports/signaling_operator0.json
+python privacy_eval/evaluate_release.py --model cost --operator operator0 --generated-dir 'CoST-Diff_exp/CoST-Diff/generate_data/<run-directory>' --output privacy_eval/local/reports/cost_operator0.json
+```
+
+The report compares generated station sequences with the matching operator's training and holdout user-day trajectories. It includes exact sequence overlap, rare/unseen transition exposure, and an exploratory black-box distance-based membership signal. This first-stage script does not implement white-box MIA, user attribution, or CoST-Diff condition-source attribution; it does not treat distance scores as a privacy guarantee. Generated rows must be plain numeric CSV fields. The generation writers now emit numeric fields; CoST-Diff stops writing after the terminal zero-wait row to omit padded tails.
+
 ## Data protection boundary
 
 No raw trajectory or base-station CSV is committed by this repository. Do not add `privacy_eval/local/`, `original_data/`, generated artifacts, or `membership_map.csv` to Git. Keep `membership_map.csv` on the private server; it contains user and day identifiers.
