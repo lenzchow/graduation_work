@@ -32,7 +32,7 @@ After the split script completes, rebuild each model's preprocessing artifacts:
 (cd CoST-Diff_exp/CoST-Diff/preprocess_data && python preprocess.py)
 ```
 
-Station vocabularies, transition graphs, embeddings, and sequence files are rebuilt from training records only. The preprocessor reads holdout rows only to count eligible trajectory lengths after applying the training station vocabulary; it does not use holdout sequences, IDs, coordinates, or transitions to build model artifacts. It saves `length_distri_train.npy` and `length_distri_holdout.npy`; the active `length_distri.npy` is set to the holdout counts so the generated sample count and length distribution match the evaluation set. The generation entry points read this active file. This is an evaluation sampling schedule, not a model-learned statistic.
+Station vocabularies, transition graphs, embeddings, and sequence files are rebuilt from training records only. The preprocessor reads holdout rows only to count eligible trajectory lengths after applying the training station vocabulary; it does not use holdout sequences, IDs, coordinates, or transitions to build model artifacts. It saves `length_distri_train.npy` and `length_distri_holdout.npy`; the active `length_distri.npy` is set to holdout counts. The generation code uses each bin's integer count directly and skips empty bins, so it generates the requested count for each length. The generation entry points read this active file. This is an evaluation sampling schedule, not a model-learned statistic.
 
 Do not reuse full-data `data/` or `handled_data/` artifacts. The preprocessing scripts clear and rebuild each operator's derived `data/operatorX/` directory.
 
