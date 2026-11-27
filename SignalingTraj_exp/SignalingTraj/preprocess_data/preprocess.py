@@ -18,6 +18,9 @@ import numpy as np
 from node2vec.ge.classify import read_node_label, Classifier
 from node2vec.ge import Node2Vec
 import time
+import shutil
+from pathlib import Path
+from datetime import datetime
 
 
 def traj_station_preprocess(df_traj, df_bs, min_length, max_length):
@@ -219,7 +222,7 @@ def build_graph_from_txt(traj_df, operator):
 
 #     # 构造统计数组（轨迹数量分布）
 #     for key, value in result_dict.items():
-#         if key < 200:
+#         if key < len(result_list):
 #             result_list[key] = len(value)
 #     for key, value in timestamp_dict.items():
 #         if key < 200:
@@ -265,9 +268,9 @@ def gen_all(df_traj, operator):
     max_traj_len = df_traj['traj'].apply(len).max()
     
     # 根据最长轨迹长度初始化列表
-    result_list = [0] * max_len
-    tim_list = [0] * max_len
-    sta_list = [0] * max_len
+    result_list = [0] * (max_traj_len + 1)
+    tim_list = [0] * (max_traj_len + 1)
+    sta_list = [0] * (max_traj_len + 1)
 
 
     for _, row in df_traj.iterrows():
@@ -416,38 +419,61 @@ def lac_feature(df_bs):
     return lac_one_hot_vector
 
 def main():
+    script_dir = Path(__file__).resolve().parent
+    os.chdir(script_dir)
+    repo_root = Path(__file__).resolve().parents[3]
+    split_root = repo_root / "privacy_eval" / "local" / "splits" / "SignalingTraj"
+
     embed_size = 64
-    operator = ['0', '1', '3']
-    operator = ['1']
-    for  i in operator:
-        # 读取轨迹数据
-        df_traj = pd.read_csv(f'./original_data/traj_{operator}.csv')
-        # 读取基站数据
-        df_bs = pd.read_csv(f'./original_data/base_station_{operator}.csv')
-        
-        min_length, max_length = 0, 12000
-        df_0, df_1, df_3, df_0_bs, df_1_bs, df_3_bs = traj_station_preprocess(df_traj, df_bs, min_length, max_length)
+    min_length, max_length = 1, 12000
+    trajectory_parts = []
+    station_parts = []
 
-        if not (df_0.empty and df_0_bs.empty):
-            extra_file(df_0_bs,'operator0')
-            create_graph(df_0,'operator0')
-            gen_all(df_0,'operator0')
-            road_embed(df_0, df_0_bs, embed_size, 'operator0')
+    for operator in ("0", "1", "3"):
+        split_dir = split_root / f"operator{operator}"
+        train_path = split_dir / "train.csv"
+        station_path = split_dir / "base_station_train.csv"
+        if not train_path.is_file() or not station_path.is_file():
+            raise FileNotFoundError(
+                f"Missing train split for operator{operator}; run privacy_eval/split_trajectories.py first"
+            )
+        trajectory_parts.append(pd.read_csv(train_path))
+        station_parts.append(pd.read_csv(station_path))
 
-        if not (df_1.empty and df_1_bs.empty):
-            extra_file(df_1_bs,'operator1')
-            create_graph(df_1,'operator1')
-            gen_all(df_1,'operator1')
-            road_embed(df_1, df_1_bs, embed_size, 'operator1')
+    df_train = pd.concat(trajectory_parts, ignore_index=True)
+    df_stations = pd.concat(station_parts, ignore_index=True)
+    df_stations = df_stations.drop_duplicates(subset=["c_uli"]).reset_index(drop=True)
 
-        if not (df_3.empty and df_3_bs.empty):
-            extra_file(df_3_bs,'operator3')
-            create_graph(df_3,'operator3')
-            gen_all(df_3,'operator3')
-            road_embed(df_3, df_3_bs, embed_size, 'operator3')
-        
-    
+    df_0, df_1, df_3, bs_0, bs_1, bs_3 = traj_station_preprocess(
+        df_train, df_stations, min_length, max_length
+    )
+    outputs = {
+        "0": (df_0, bs_0),
+        "1": (df_1, bs_1),
+        "3": (df_3, bs_3),
+    }
 
+    prepared = 0
+    for operator, (df_traj, df_bs) in outputs.items():
+        if df_traj.empty or df_bs.empty:
+            print(f"Skipping operator{operator}: no eligible training trajectories or stations")
+            continue
+
+        tag = f"operator{operator}"
+        data_root = Path("../data") / tag
+        if data_root.exists():
+            shutil.rmtree(data_root)
+        (data_root / "extra_file").mkdir(parents=True, exist_ok=True)
+        (data_root / "graph").mkdir(parents=True, exist_ok=True)
+
+        extra_file(df_bs, tag)
+        create_graph(df_traj, tag)
+        gen_all(df_traj, tag)
+        road_embed(df_traj, df_bs, embed_size, tag)
+        prepared += 1
+
+    if prepared == 0:
+        raise RuntimeError("No operator artifacts were produced from the training split")
 
 
 if __name__ == "__main__":
