@@ -237,7 +237,8 @@ def sample_cond_for_generation(cond_feat: torch.Tensor,
         'bs0':     bs0,
         'city_id': city_id,
         'weekday': weekday,   # 序列级条件
-        'slot':    slot_seqs  # 事件级条件
+        'slot':    slot_seqs, # 事件级条件
+        'source_index': torch.as_tensor(sel, device=device).long()
     }
 
 #####################################################################################################
