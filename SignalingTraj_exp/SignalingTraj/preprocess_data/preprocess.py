@@ -290,7 +290,7 @@ def gen_all(df_traj, operator):
 
     # 构造长度分布数组
     for key in result_dict:
-        if key < 200:
+        if key < len(result_list):
             result_list[key] = len(result_dict[key])
             tim_list[key] = len(tim_dict.get(key, []))
             sta_list[key] = len(sta_dict.get(key, []))
