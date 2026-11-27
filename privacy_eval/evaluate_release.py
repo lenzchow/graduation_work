@@ -19,8 +19,8 @@ MODEL_LAYOUT = {
     "signaling": {
         "root": Path("SignalingTraj_exp/SignalingTraj"),
         "split": "SignalingTraj",
-        "min_length": 1,
-        "max_length": 12000,
+        "min_length": 50,
+        "max_length": 200,
         "generated_columns": 5,
     },
     "cost": {
