@@ -58,6 +58,8 @@ def main() -> int:
     parser.add_argument("--max-candidates", type=int, default=300)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+    if args.max_candidates < 2:
+        parser.error("--max-candidates must be at least 2")
 
     generated = read_generated(args.generated_dir)
     manifest_rows = [
@@ -90,9 +92,10 @@ def main() -> int:
         source_score = transition_jaccard(output_seq, source_seq)
         exact_match = output_seq == source_seq
 
-        pool = list(range(len(source_list)))
-        if len(pool) > args.max_candidates:
-            pool = sorted(set(rng.sample(pool, args.max_candidates)) | {source_index})
+        decoys = [i for i in range(len(source_list)) if i != source_index]
+        if len(decoys) + 1 > args.max_candidates:
+            decoys = rng.sample(decoys, args.max_candidates - 1)
+        pool = [source_index, *decoys]
         other_scores = [
             transition_jaccard(output_seq, tuple(int(x) for x in source_list[i]))
             for i in pool if i != source_index
