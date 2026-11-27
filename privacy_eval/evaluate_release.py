@@ -158,6 +158,8 @@ def sample(items: list, limit: int, rng: random.Random) -> list:
 
 
 def transition_set(sequence: tuple[str, ...]) -> set[tuple[str, str]]:
+    if len(sequence) == 1:
+        return {(chr(95)+chr(95)+"single"+chr(95)+chr(95), sequence[0])}
     return set(zip(sequence, sequence[1:]))
 
 
@@ -166,8 +168,6 @@ def max_transition_jaccard(
     generated_by_length: dict[int, list[set[tuple[str, str]]]],
 ) -> float:
     query = transition_set(sequence)
-    if not query:
-        return float(any(length == len(sequence) for length in generated_by_length))
     best = 0.0
     for length in range(max(1, len(sequence) - 1), len(sequence) + 2):
         for candidate in generated_by_length.get(length, []):
