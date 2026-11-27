@@ -45,3 +45,11 @@ The repository was updated and reviewed through GitHub. This session could not s
 - The generation writer emits plain numeric CSV fields for each row, so the release parser can read station indices and time values without PyTorch tensor representations.
 - The shared `privacy_eval/evaluate_release.py` reads this model's exact generated output directory, maps station indices back to original station IDs, and compares user-day station sequences with the split training and holdout sets.
 - The report includes exact sequence overlap, rare/unseen transition exposure, and an exploratory black-box distance-based membership signal. These are preliminary empirical checks, not a formal privacy guarantee.
+
+## Risk-evaluation implementation status
+
+- `privacy_eval/audit_signaling_graph.py` compares saved graph edges with transitions in `train.csv`, checks graph/embedding dimensions, and records artifact hashes. Because the pre-existing graph and embedding files do not contain a preprocessing provenance manifest, the report cannot prove when or from which rows an old embedding was fitted.
+- `privacy_eval/evaluate_release.py` checks spatial exact repetition and rare transitions, and reports an exploratory black-box membership signal using train-versus-holdout candidates.
+- `privacy_eval/evaluate_spatial_near_duplicates.py` and `privacy_eval/evaluate_temporal_exposure.py` screen generated releases for spatial and elapsed-time similarity. These are exposure screens, not standalone privacy guarantees.
+- White-box MIA is not implemented. The current training code does not expose a validated per-trajectory score, and the SignalingTraj model file currently fails Python parsing. Do not interpret the black-box similarity score as a white-box result.
+- The integrated runner is `privacy_eval/run_train_generate_evaluate.sh`. It does not rerun the split or preprocessing. It stops at syntax preflight while `models/model.py` remains invalid.

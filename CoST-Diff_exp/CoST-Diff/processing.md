@@ -47,3 +47,12 @@ The repository was updated and reviewed through GitHub. This session could not s
 - The generation writer emits plain numeric CSV fields for each row, so the release parser can read station indices and time values without PyTorch tensor representations.
 - The shared `privacy_eval/evaluate_release.py` reads this model's exact generated output directory, maps station indices back to original station IDs, and compares user-day station sequences with the split training and holdout sets.
 - The report includes exact sequence overlap, rare/unseen transition exposure, and an exploratory black-box distance-based membership signal. These are preliminary empirical checks, not a formal privacy guarantee.
+
+## Risk-evaluation implementation status
+
+- `models/multi_train.py` records the index of each sampled condition trajectory while generating, in a private JSONL manifest under `privacy_eval/local/condition_sources/`. The manifest maps output blocks to a condition-source sequence index; it contains no user identity mapping, so its result is condition-source trajectory attribution, not user re-identification.
+- `privacy_eval/evaluate_condition_source.py` compares generated station sequences with their sampled condition-source sequences and same-length decoys.
+- `privacy_eval/evaluate_release.py` checks spatial exact repetition and rare transitions, and reports an exploratory black-box membership signal using train-versus-holdout candidates. The spatial and temporal near-duplicate screens are separate scripts.
+- `privacy_eval/evaluate_spatial_near_duplicates.py` and `privacy_eval/evaluate_temporal_exposure.py` screen generated releases for spatial and elapsed-time similarity. These are exposure screens, not standalone privacy guarantees.
+- White-box MIA is not implemented. The current model training interface returns batch-aggregated losses rather than validated per-trajectory membership scores; do not substitute a batch mean.
+- The integrated runner is `privacy_eval/run_train_generate_evaluate.sh`. It does not rerun the split or preprocessing. CoST-Diff can be selected independently with `MODELS="cost"`; runtime execution still needs to be performed on the server.
