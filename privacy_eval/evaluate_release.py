@@ -159,7 +159,7 @@ def sample(items: list, limit: int, rng: random.Random) -> list:
 
 def transition_set(sequence: tuple[str, ...]) -> set[tuple[str, str]]:
     if len(sequence) == 1:
-        return {(chr(95)+chr(95)+"single"+chr(95)+chr(95), sequence[0])}
+        return {("__single__", sequence[0])}
     return set(zip(sequence, sequence[1:]))
 
 
