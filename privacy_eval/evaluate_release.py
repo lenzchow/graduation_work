@@ -139,7 +139,7 @@ def read_generated_trajectories(
                 station = index_to_station.get(rid)
                 if station is None:
                     unmapped_rows += 1
-                    continue
+                    raise ValueError(f"Unknown generated station index {rid!r} in {path}:{line_number}")
                 # Validate the emitted time and, for CoST-Diff, interval fields.
                 scalar_float(columns[4], path, line_number)
                 if expected_columns == 6:
