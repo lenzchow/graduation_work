@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import statistics
 from collections import defaultdict
@@ -56,7 +57,7 @@ def summarize(scores, threshold):
             "fraction_at_or_above_threshold": None,
         }
     ordered = sorted(scores)
-    p95 = ordered[min(len(ordered) - 1, int(0.95 * len(ordered)))]
+    p95 = ordered[min(len(ordered) - 1, math.ceil(0.95 * len(ordered)) - 1)]
     return {
         "matched_outputs": len(scores),
         "mean_max_transition_jaccard": statistics.fmean(scores),
