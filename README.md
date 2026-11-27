@@ -63,52 +63,33 @@ python privacy_eval/evaluate_release.py --model signaling --operator operator0 -
 python privacy_eval/evaluate_release.py --model cost --operator operator0 --generated-dir '<exact-output-path>' --output privacy_eval/local/reports/cost_operator0.json
 ```
 
-The report compares generated station sequences with the matching operator's training and holdout user-day trajectories. It includes exact sequence overlap, rare/unseen transition exposure, and an exploratory black-box distance-based membership signal. This first-stage script does not implement white-box MIA, user attribution, or CoST-Diff condition-source attribution; it does not treat distance scores as a privacy guarantee. Generated rows must be plain numeric CSV fields. The generation writers now emit numeric fields; CoST-Diff stops writing after the terminal zero-wait row to omit padded tails.
+The report compares generated station sequences with the matching operator's training and holdout user-day trajectories. It includes exact sequence overlap, rare/unseen transition exposure, and an exploratory black-box distance-based membership signal. The integrated runner adds spatial and temporal near-duplicate screening, CoST-Diff condition-source attribution, and a SignalingTraj graph audit. White-box MIA and user re-identification are not implemented; distance and similarity scores are not privacy guarantees. Generated rows must be plain numeric CSV fields.
 
 ## Data protection boundary
 
 No raw trajectory or base-station CSV is committed by this repository. Do not add `privacy_eval/local/`, `original_data/`, generated artifacts, or `membership_map.csv` to Git. Keep `membership_map.csv` on the private server; it contains user and day identifiers.
 
 
-## Re-run after preprocessing is already complete
+## Run evaluations after preprocessing
 
-The privacy split and model artifacts are already prepared on the server. Do **not** rerun `prepare_all_splits.sh` or either preprocessor unless you intentionally want to replace the current split/artifacts. The combined runner below only checks the saved split, audits the available artifacts, trains, generates, and evaluates:
+When the split files and model artifacts have already been prepared on the server, do not rerun split or preprocessing steps. From the repository root:
 
 ```bash
-cd /workspace/traj_generation/graduation_paper_exp/privacy-risk-evaluation-prep-updated
-git pull origin privacy-risk-evaluation-prep
+git pull --ff-only origin privacy-risk-evaluation-prep
 conda activate st_new
 bash privacy_eval/run_train_generate_evaluate.sh
 ```
 
-Optional selections (defaults are both models and all three operators):
+The runner reads the prepared splits under `privacy_eval/local/splits/<model-root>/operatorX/`, trains and generates each selected model, then writes private reports and logs under `privacy_eval/local/`. It does not create or alter split files.
+
+Optional selection:
 
 ```bash
-MODELS="signaling" OPERATORS="operator0" EMBED_MODE="vgae" bash privacy_eval/run_train_generate_evaluate.sh
+MODELS="cost" OPERATORS="operator0" EMBED_MODE="vgae" bash privacy_eval/run_train_generate_evaluate.sh
 ```
 
-Implemented checks in this runner:
-- release-level spatial overlap and the existing black-box similarity MIA probe;
-- spatial near-duplicate screening by transition-set Jaccard against train and holdout trajectories;
-- temporal nearest-sequence similarity against train and holdout trajectories;
-- CoST-Diff condition-source attribution, using a per-generation JSONL manifest;
-- SignalingTraj graph edge and embedding-dimension audit.
+Implemented release checks include spatial overlap and rare-transition screening, black-box similarity MIA probing, spatial and temporal near-duplicate screening, CoST-Diff condition-source attribution, and SignalingTraj graph edge/dimension auditing. The current legacy embedding artifacts have no provenance manifest, so their exact training provenance cannot be independently confirmed by the audit.
 
-The condition-source check requires a **new generation run** after pulling this branch; it does not require repeating preprocessing. It reports attribution to the sampled condition-source trajectory, not a user identity. The graph audit checks graph edges against training transitions and checks embedding dimensions. The current legacy embedding files have no provenance manifest, so the audit cannot independently prove which exact transitions were used to fit the embedding.
+White-box MIA remains unimplemented because the current training code does not expose a verified per-trajectory score for both members and non-members. Do not substitute a batch-average loss. The runner performs syntax preflight and stops if model code does not parse. Evaluation findings are limited to the data and attack setup; they do not establish a formal privacy guarantee.
 
-White-box MIA is not yet implemented as a valid per-trajectory attack. Both model implementations need a verified per-sample scoring interface and a matching holdout-input path before reporting white-box results. Do not interpret batch-average training loss as a per-trajectory membership score. The runner performs a Python syntax preflight before training and stops if the checked model scripts do not parse.
-
-All reports and source manifests are written under ignored `privacy_eval/local/`; keep them on the private server.
-
-
-## Train, generate, and evaluate after preprocessing
-
-Once the split files, graph, and embeddings have already been prepared, run the integrated workflow from the repository root:
-
-```bash
-bash privacy_eval/run_train_generate_evaluate.sh
-```
-
-This runner does not rerun preprocessing or recreate the splits. It reads the prepared files under `privacy_eval/local/splits/<model-root>/operatorX/`, trains each selected model, generates trajectories, and stores private reports and logs under `privacy_eval/local/`.
-
-The current evaluation includes release-level spatial exposure, temporal near-duplicate screening, spatial near-duplicate screening, CoST-Diff condition-source attribution, and a SignalingTraj graph provenance check. White-box membership inference is not included yet: it requires verified per-trajectory model scores for member and non-member samples. Results from these screening checks are empirical and do not establish a formal privacy guarantee.
+Keep raw data, splits, generated files, logs, and reports on the private server. Do not commit them to Git.
