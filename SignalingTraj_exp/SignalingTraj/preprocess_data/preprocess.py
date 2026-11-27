@@ -1,3 +1,4 @@
+from collections import Counter
 import pandas as pd
 import copy
 import networkx as nx
@@ -325,27 +326,16 @@ def road_embed(df_traj, df_bs, embed_size, operator):
         
     lac_features = lac_feature(df_bs)
     
-    all_transitions = []
-    prev_end = None
+    transition_counts = Counter()
     for _, row in df_traj.iterrows():
         traj_seq = row['traj_index']
-        if prev_end is not None:
-            all_transitions.append((prev_end, traj_seq[0]))
         for i in range(len(traj_seq) - 1):
-            transition = (traj_seq[i], traj_seq[i + 1])
-            all_transitions.append(transition)
-        prev_end = traj_seq[-1]
+            transition_counts[(traj_seq[i], traj_seq[i + 1])] += 1
 
-    unique_transitions = set(all_transitions)
-    unique_transitions_list = list(unique_transitions)
-    
-    # 统计每个转移关系出现的次数，即权重
-    weight_dict = {}
-    for trans in unique_transitions:
-        weight_dict[trans] = weight_dict.get(trans, 0) + 1
-
-    # 创建带权重的转移关系列表
-    unique_transitions_list_weighted = [(trans, weight_dict[trans]) for trans in unique_transitions_list]
+    unique_transitions_list = list(transition_counts)
+    unique_transitions_list_weighted = [
+        (transition, count) for transition, count in transition_counts.items()
+    ]
     
     vage_embed(lac_features, unique_transitions_list, embed_size, operator)
     node2vec(unique_transitions_list_weighted, embed_size, operator)
