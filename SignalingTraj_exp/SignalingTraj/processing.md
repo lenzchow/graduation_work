@@ -33,7 +33,7 @@ Repeat the train and generation commands for `operator1` and `operator3`.
 
 Training sequences, station vocabularies, transition graphs, and embeddings use training data only. Holdout sequences, identifiers, and transitions are not used to build those model artifacts. Holdout is read only to calculate the aggregate generation length schedule; it does not supply generated locations or conditions. `membership_map.csv` contains identifiers; keep it on the private server and never commit it.
 
-SignalingTraj applies its existing station-frequency filter after splitting, so the effective holdout length histogram is recalculated against the training station vocabulary and the same preprocessing length range. The training histogram is retained as `length_distri_train.npy`; the active `length_distri.npy` matches the effective holdout histogram.
+SignalingTraj applies its existing station-frequency filter after splitting, so the effective holdout length histogram is recalculated against the training station vocabulary and the same preprocessing length range. The training histogram is retained as `length_distri_train.npy`; the active `length_distri.npy` matches the effective holdout histogram. Generation uses integer counts directly and skips zero-count lengths.
 
 ## Verification limits
 
