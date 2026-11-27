@@ -177,6 +177,8 @@ def generate_data(model,
     )
     os.makedirs(manifest_root, exist_ok=True)
     manifest_path = os.path.join(manifest_root, f"{args.dataset}_{formatted_time}.jsonl")
+    # A repeated generation run in the same minute must not append stale source links.
+    open(manifest_path, "w", encoding="utf-8").close()
     SE = SE.to(device)
     spatial_A_trans = torch.tensor(spatial_A_trans, dtype=torch.float).to(device)
     
