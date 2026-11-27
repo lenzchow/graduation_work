@@ -21,7 +21,7 @@ bash privacy_eval/prepare_all_splits.sh
 
 The script creates, for each model and operator, `train.csv`, `holdout.csv`, `base_station_train.csv`, `base_station_holdout.csv`, `length_distribution.csv`, `membership_map.csv`, `split_manifest.json`, and `split_audit.json` under `privacy_eval/local/splits/`. These contain private data or identifiers and are ignored by Git.
 
-The splitter uses the static station table to remove unknown station IDs. CoST-Diff also applies its existing geographic bounding box and length range (10–60); SignalingTraj uses lengths 1–12000. Length strata containing only one eligible trajectory are assigned to training because they cannot be represented in both partitions. The manifest records these cases.
+The splitter uses the static station table to remove unknown station IDs. CoST-Diff also applies its existing geographic bounding box and length range (10–60); SignalingTraj uses lengths 50–200. Length strata containing only one eligible trajectory are assigned to training because they cannot be represented in both partitions. The manifest records these cases.
 
 ## Build model artifacts from training data
 
@@ -99,3 +99,16 @@ The condition-source check requires a **new generation run** after pulling this 
 White-box MIA is not yet implemented as a valid per-trajectory attack. Both model implementations need a verified per-sample scoring interface and a matching holdout-input path before reporting white-box results. Do not interpret batch-average training loss as a per-trajectory membership score. The runner performs a Python syntax preflight before training and stops if the checked model scripts do not parse.
 
 All reports and source manifests are written under ignored `privacy_eval/local/`; keep them on the private server.
+
+
+## Train, generate, and evaluate after preprocessing
+
+Once the split files, graph, and embeddings have already been prepared, run the integrated workflow from the repository root:
+
+```bash
+bash privacy_eval/run_train_generate_evaluate.sh
+```
+
+This runner does not rerun preprocessing or recreate the splits. It reads the prepared files under `privacy_eval/local/splits/<model-root>/operatorX/`, trains each selected model, generates trajectories, and stores private reports and logs under `privacy_eval/local/`.
+
+The current evaluation includes release-level spatial exposure, temporal near-duplicate screening, spatial near-duplicate screening, CoST-Diff condition-source attribution, and a SignalingTraj graph provenance check. White-box membership inference is not included yet: it requires verified per-trajectory model scores for member and non-member samples. Results from these screening checks are empirical and do not establish a formal privacy guarantee.
