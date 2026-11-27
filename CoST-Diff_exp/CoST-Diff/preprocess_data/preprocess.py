@@ -557,14 +557,15 @@ def main():
         df_t, df_b = traj_station_preprocess_single(
             df_traj, df_bs, min_length, max_length
         )
-        if df_t.empty or df_b.empty:
-            print(f"Skipping operator{operator}: no eligible training trajectories or stations")
-            continue
-
         tag = f"operator{operator}"
         data_root = Path("../data") / tag
         if data_root.exists():
             shutil.rmtree(data_root)
+
+        if df_t.empty or df_b.empty:
+            print(f"Skipping operator{operator}: no eligible training trajectories or stations")
+            continue
+
         (data_root / "extra_file").mkdir(parents=True, exist_ok=True)
         (data_root / "graph").mkdir(parents=True, exist_ok=True)
 
