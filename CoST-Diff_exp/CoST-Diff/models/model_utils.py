@@ -526,7 +526,12 @@ def touli(index_uli_dict,
                 lat, lon = index_lat_lon_dict.get(str(rid.item()),rid)[0], index_lat_lon_dict.get(str(rid.item()),rid)[1]
                 if rid >= parameters.id_size: continue #parameters.id_size:continue
                 
-                f.write("{}, {}, {}, {}, {}, {}\n".format(areacode, lat, lon, rid, time, sta))
+                rid_value = int(rid.item())
+                time_value = float(time.item())
+                sta_value = float(sta.item()) if torch.is_tensor(sta) else float(sta)
+                f.write(', '.join(map(str, [areacode, lat, lon, rid_value, time_value, sta_value])) + chr(10))
+                if sta_value <= 0:
+                    break
             # print("----------------")
     return seqs
 
