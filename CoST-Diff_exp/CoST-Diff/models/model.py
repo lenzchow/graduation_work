@@ -199,4 +199,4 @@ class Diff_RNTraj(nn.Module):
             cond_event=cond_event,
         )
     
-        return dt, x0_road
+        return dt, x0_road, cond_raw["source_index"]
