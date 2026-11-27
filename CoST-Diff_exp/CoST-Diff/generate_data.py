@@ -1,4 +1,3 @@
-import nni
 import time
 from tqdm import tqdm
 import logging
