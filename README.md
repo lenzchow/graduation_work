@@ -89,7 +89,7 @@ MODELS="signaling" OPERATORS="operator0" EMBED_MODE="vgae" bash privacy_eval/run
 
 Implemented checks in this runner:
 - release-level spatial overlap and the existing black-box similarity MIA probe;
-- temporal nearest-sequence similarity against train and holdout trajectories;
+- spatial near-duplicate screening by transition-set Jaccard against train and holdout trajectories;\n- temporal nearest-sequence similarity against train and holdout trajectories;
 - CoST-Diff condition-source attribution, using a per-generation JSONL manifest;
 - SignalingTraj graph edge and embedding-dimension audit.
 
