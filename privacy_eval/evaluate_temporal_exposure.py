@@ -14,6 +14,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def elapsed_minutes(a: float, b: float) -> float:
+    delta = b - a
+    scale = 60000.0 if max(abs(a), abs(b)) >= 1e11 else 60.0 if max(abs(a), abs(b)) >= 1e8 else 1.0
+    return max(0.0, delta / scale)
+
+
 def read_real(path: Path) -> list[tuple[int, tuple[float, ...]]]:
     groups: dict[tuple[str, str], list[tuple[float, int]]] = defaultdict(list)
     with path.open(encoding="utf-8-sig", newline="") as stream:
@@ -26,8 +32,7 @@ def read_real(path: Path) -> list[tuple[int, tuple[float, ...]]]:
             raw = (row.get("c_timestamp") or "").strip()
             if not user or not day or not raw:
                 continue
-            timestamp = float(raw)
-            groups[(user, day)].append((timestamp, row_number))
+            groups[(user, day)].append((float(raw), row_number))
 
     trajectories = []
     for rows in groups.values():
@@ -35,9 +40,7 @@ def read_real(path: Path) -> list[tuple[int, tuple[float, ...]]]:
         if len(rows) < 2:
             continue
         timestamps = [x[0] for x in rows]
-        # Epoch milliseconds/seconds become elapsed minutes. Already-relative values
-        # are also differenced, so their absolute origin does not affect the result.
-        gaps = tuple(max(0.0, (b - a) / 60.0) for a, b in zip(timestamps, timestamps[1:]))
+        gaps = tuple(elapsed_minutes(a, b) for a, b in zip(timestamps, timestamps[1:]))
         trajectories.append((len(rows), gaps))
     return trajectories
 
@@ -56,8 +59,10 @@ def read_generated(directory: Path, model: str) -> list[tuple[int, tuple[float, 
                     continue
                 if line.startswith("#"):
                     if len(current) > 1:
-                        scale = 60.0 if model == "signaling" else 1.0
-                        gaps = tuple(max(0.0, (b - a) * scale) for a, b in zip(current, current[1:]))
+                        if model == "signaling":
+                            gaps = tuple(((b - a) % 24.0) * 60.0 for a, b in zip(current, current[1:]))
+                        else:
+                            gaps = tuple(max(0.0, b - a) for a, b in zip(current, current[1:]))
                         result.append((len(current), gaps))
                     current = []
                     continue
@@ -66,8 +71,10 @@ def read_generated(directory: Path, model: str) -> list[tuple[int, tuple[float, 
                     raise ValueError(f"Expected time column 5 in {path}:{line_number}")
                 current.append(float(columns[4]))
         if len(current) > 1:
-            scale = 60.0 if model == "signaling" else 1.0
-            gaps = tuple(max(0.0, (b - a) * scale) for a, b in zip(current, current[1:]))
+            if model == "signaling":
+                gaps = tuple(((b - a) % 24.0) * 60.0 for a, b in zip(current, current[1:]))
+            else:
+                gaps = tuple(max(0.0, b - a) for a, b in zip(current, current[1:]))
             result.append((len(current), gaps))
     return result
 
@@ -148,7 +155,7 @@ def main() -> int:
 
     tolerance = args.tolerance_minutes
     if tolerance is None:
-        tolerance = 30.0 if args.model == "signaling" else 5.0
+        tolerance = 60.0 if args.model == "signaling" else 5.0
     rng = random.Random(args.seed)
     train_refs = sample_by_length(train, args.max_reference_per_length, rng)
     holdout_refs = sample_by_length(holdout, args.max_reference_per_length, rng)
@@ -160,13 +167,14 @@ def main() -> int:
         "model": args.model,
         "operator": args.operator,
         "generated_directory": str(args.generated_dir.resolve()),
-        "comparison": "minimum mean absolute error between inter-visit interval sequences, matched by trajectory length",
+        "comparison": "minimum mean absolute error between inter-visit interval sequences, matched by emitted trajectory length",
         "time_unit": "minutes",
         "training_reference": summarize(train_errors, tolerance),
         "holdout_reference": summarize(holdout_errors, tolerance),
         "interpretation": (
-            "A screening measure for temporal similarity, not a standalone privacy guarantee. "
-            "Signal time is compared at hour resolution; CoST-Diff time is compared in minutes."
+            "A temporal similarity screen, not a standalone privacy guarantee. Signal outputs encode time "
+            "at hour resolution, so its interval comparison is coarse. Generated-to-training similarity "
+            "should be interpreted alongside the holdout comparison."
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
