@@ -1,6 +1,8 @@
 import numpy as np
 import random
 import math
+import json
+import os
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -168,7 +170,13 @@ def generate_data(model,
                   t_min, U_business, cond_feat, 
                   all_index_seqs, all_tim_seqs, all_slot_seqs, all_seq_cond):
     
-    model.eval()  
+    model.eval()
+    written_count_by_length = {}
+    manifest_root = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "../../../privacy_eval/local/condition_sources")
+    )
+    os.makedirs(manifest_root, exist_ok=True)
+    manifest_path = os.path.join(manifest_root, f"{args.dataset}_{formatted_time}.jsonl")
     SE = SE.to(device)
     spatial_A_trans = torch.tensor(spatial_A_trans, dtype=torch.float).to(device)
     
@@ -196,7 +204,7 @@ def generate_data(model,
                 else:
                     _curr_batch = curr_batch
 
-                sta, ids = model.generate_data(spatial_A_trans, SE, _curr_batch, curr_length, 
+                sta, ids, source_indices = model.generate_data(spatial_A_trans, SE, _curr_batch, curr_length, 
                                                args.pre_trained_dim, t_min, U_business, cond_feat, all_index_seqs, all_tim_seqs,all_slot_seqs, all_seq_cond)
 
                 arrival_time = sample_arrival_times(model, ids, sta)        
@@ -242,6 +250,17 @@ def generate_data(model,
                       end_length,
                       formatted_time,
                       save_txt_num=i)
+
+                file_start = written_count_by_length.get(i, 0)
+                with open(manifest_path, "a", encoding="utf-8") as manifest:
+                    for offset, source_index in enumerate(source_indices.detach().cpu().tolist()):
+                        manifest.write(json.dumps({
+                            "generated_file": f"{i}.txt",
+                            "generated_index": file_start + offset,
+                            "length": curr_length,
+                            "source_bucket_index": int(source_index)
+                        }, ensure_ascii=False) + "\\n")
+                written_count_by_length[i] = file_start + len(source_indices)
 
                 # 4. 更新剩余要生成的数量
                 curr_batch = curr_batch - _curr_batch
