@@ -127,6 +127,8 @@ def generate_data(model,
         for i in tqdm(range(start_length, end_length+1)):
             curr_length =i
             curr_batch = int(length2num[i])
+            if curr_batch <= 0:
+                continue
 
             while True:
                 if curr_batch > 256: 
