@@ -467,18 +467,54 @@ def encode_time_list(tim_data_list, d_model=128, fourier=False):
 # 时间分布统计函数
 #
 #####################################################################################################
-def inference_initial_from_tim_dict(tim_data_dict, tim_size=1440):
-    # 1. 提取所有轨迹的起始时间（分钟数）
-    timestamps = np.concatenate([
-        [traj[0] % tim_size for traj in trajs]   # 每条轨迹取第一个时间
-        for trajs in tim_data_dict.values()
-    ])
-    
-    # 2. 统计频率分布（10分钟一个bin）
-    freqs = np.histogram(timestamps, bins=tim_size // 10, range=(0, tim_size))[0]
-    
-    # 3. 归一化得到概率分布
-    return freqs / freqs.sum()
+@torch.no_grad()
+def sample_arrival_times(model, base_station_seqs, wait_times_list, is_holiday=None,
+                         tim_size=1440, bin_size=10):
+    """Sample start times by weekday/weekend category, then add generated waits."""
+    waits = torch.as_tensor(wait_times_list, dtype=torch.float32, device=model.device)
+    if waits.ndim != 2:
+        raise ValueError(f"wait_times_list must be 2-D, got shape {tuple(waits.shape)}")
+    batch_size = waits.shape[0]
+    if is_holiday is None:
+        holiday_flags = np.zeros(batch_size, dtype=np.int64)
+    else:
+        holiday_flags = torch.as_tensor(is_holiday).detach().cpu().numpy().reshape(-1)
+        if len(holiday_flags) != batch_size:
+            raise ValueError("is_holiday must contain one flag per trajectory")
+    distributions = model.dataset_tim_prob
+    bins = tim_size // bin_size
+    start_minutes = []
+    for flag in holiday_flags:
+        key = "holiday" if int(flag) else "workday"
+        probabilities = np.asarray(distributions[key], dtype=float)
+        probabilities = probabilities / probabilities.sum()
+        start_bin = np.random.choice(bins, p=probabilities)
+        start_minutes.append(start_bin * bin_size + bin_size / 2)
+    start = torch.as_tensor(start_minutes, dtype=waits.dtype, device=waits.device).unsqueeze(1)
+    return torch.cat([start, start + torch.cumsum(waits, dim=1)], dim=1)
+
+
+def inference_initial_from_tim_dict(tim_data_dict, seq_cond_dict, tim_size=1440, bin_size=10):
+    """Estimate start-time distributions for weekdays (0-4) and weekends (5-6)."""
+    grouped = {"workday": [], "holiday": []}
+    for length, trajectories in tim_data_dict.items():
+        weekdays = seq_cond_dict.get(length, [])
+        if len(trajectories) != len(weekdays):
+            raise ValueError(f"Time/weekday counts differ for trajectory length {length}")
+        for trajectory, weekday in zip(trajectories, weekdays):
+            if trajectory:
+                key = "holiday" if int(weekday) >= 5 else "workday"
+                grouped[key].append(float(trajectory[0]) % tim_size)
+    pooled = grouped["workday"] + grouped["holiday"]
+    if not pooled:
+        raise ValueError("No start timestamps available to estimate time distributions")
+    result = {}
+    bins = tim_size // bin_size
+    for key in ("workday", "holiday"):
+        values = grouped[key] or pooled
+        counts = np.histogram(values, bins=bins, range=(0, tim_size))[0].astype(float)
+        result[key] = counts / counts.sum()
+    return result
 
 #####################################################################################################
 #

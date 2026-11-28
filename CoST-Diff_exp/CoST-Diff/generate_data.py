@@ -301,7 +301,7 @@ if __name__ == '__main__':
     model.eval()
     # model.set_time_bounds(t_min, U_head)              # 2) 立刻统一 head 区间
 
-    model.dataset_tim_prob = inference_initial_from_tim_dict(all_tim_seqs)
+    model.dataset_tim_prob = inference_initial_from_tim_dict(all_tim_seqs, all_seq_cond)
     
     start_time = time.time()
     generate_data(model, 

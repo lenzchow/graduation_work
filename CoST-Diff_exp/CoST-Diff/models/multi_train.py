@@ -209,7 +209,14 @@ def generate_data(model,
                 sta, ids, source_indices = model.generate_data(spatial_A_trans, SE, _curr_batch, curr_length, 
                                                args.pre_trained_dim, t_min, U_business, cond_feat, all_index_seqs, all_tim_seqs,all_slot_seqs, all_seq_cond)
 
-                arrival_time = sample_arrival_times(model, ids, sta)        
+                source_indices = torch.as_tensor(source_indices).detach().cpu().long().reshape(-1)
+                source_weekdays = torch.as_tensor(
+                    all_seq_cond[curr_length], dtype=torch.long
+                ).index_select(0, source_indices)
+                is_holiday = (source_weekdays >= 5).long()
+                arrival_time = sample_arrival_times(
+                    model, ids, sta, is_holiday=is_holiday
+                )
 
                 # —— 预算内截断：在首个越界处截断，后续清零 ——
                 # arrival_time: [B, T]；sta: [B, T-1]
