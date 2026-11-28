@@ -418,6 +418,7 @@ def main():
     min_length, max_length = 50, 200
     trajectory_parts = []
     station_parts = []
+    holdout_parts = {}
 
     for operator in ("0", "1", "3"):
         split_dir = split_root / f"operator{operator}"
@@ -430,6 +431,7 @@ def main():
             )
         trajectory_parts.append(pd.read_csv(train_path, dtype={"c_uli": str}))
         station_parts.append(pd.read_csv(station_path, dtype={"c_uli": str}))
+        holdout_parts[operator] = pd.read_csv(holdout_path, dtype={"c_uli": str})
 
     df_train = pd.concat(trajectory_parts, ignore_index=True)
     df_stations = pd.concat(station_parts, ignore_index=True)
@@ -465,7 +467,7 @@ def main():
         train_length_distribution = np.load(gen_dir / "length_distri.npy")
         np.save(gen_dir / "length_distri_train.npy", train_length_distribution)
 
-        holdout = pd.read_csv(holdout_path, dtype={"c_uli": str})
+        holdout = holdout_parts[operator]
         holdout = holdout[holdout["c_uli"].isin(set(df_bs["c_uli"].astype(str)))]
         holdout_lengths = holdout.groupby(["c_number", "c_day"]).size()
         holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
