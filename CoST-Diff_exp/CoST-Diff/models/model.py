@@ -1,30 +1,4 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import math
-import random
-from copy import deepcopy
-import numpy as np
-from models.diff_module import diff_CSDI
-from models.diff_util import diff_forward_x0_constraint, cal_x0_from_noise_ddpm, ProtoHead
-from models.model_utils import encode_time_list, sample_cond_for_generation
-import math, torch, torch.nn as nn, torch.nn.functional as F
-from models.model_utils import TimeDecoder, SpatialDecoder , abs_tim_emb_forward
-from models.cond_film import ConditionManager, SelfCondFiLM
-
-class Diff_RNTraj(nn.Module):
-    def __init__(self, diff_model, diffusion_hyperparams, args,
-                 n_ac, n_dist, device):
-        super().__init__()
-
-        self.diff_model = diff_model
-        self.diffusion_param = diffusion_hyperparams
-        self.embedding_hour_dim = args.embedding_hour_dim
-        self.pre_trained_dim = args.pre_trained_dim
-        self.use_fourier = args.use_fourier
-        self.device = device
-
-        # ===== 条件管理器（★新）=====
+# ===== 条件管理器（★新）=====
         self.cond_mgr = ConditionManager(
             n_ac=n_ac,
             n_dist=n_dist,
@@ -178,7 +152,7 @@ class Diff_RNTraj(nn.Module):
     
         # 4) 合并：静态条件 + 事件级条件
         cond_global = cond["global"]             # [B, T, H]
-        cond_event = cond['event'] + cond["tod"],
+        cond_event = cond['event'] + cond["tod"]
         
         # 5) 扩散反推，生成 x0_tim (logλ) 和 x0_road
         spatial_A_trans = torch.as_tensor(
