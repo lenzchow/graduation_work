@@ -74,37 +74,11 @@ def traj_station_preprocess(df_traj, df_bs, min_length, max_length):
     final_traj_df = pd.DataFrame(new_data, columns=['c_number', 'c_day', 'traj', 'traj_timestamp'])
 
 
-    # 提取traj中list的第一项
-    first_items = final_traj_df['traj'].apply(lambda x: x[0] if x else None)
+    if not final_traj_df.empty:
+        final_traj_df.loc[:, 'tim'] = final_traj_df.apply(timestamp_to_minutes, axis=1)
+        final_traj_df.loc[:, 'sta'] = final_traj_df.apply(compute_waiting_time, axis=1)
 
-    df_0 = final_traj_df[first_items.str.startswith('0')].copy()
-    df_1 = final_traj_df[first_items.str.startswith('1')].copy()
-    df_3 = final_traj_df[first_items.str.startswith('3')].copy()
-
-    if not df_0.empty:
-        df_0.loc[:, 'tim'] = df_0.apply(timestamp_to_minutes, axis=1)
-        df_0.loc[:, 'sta'] = df_0.apply(compute_waiting_time, axis=1)
-
-    if not df_1.empty:
-        df_1.loc[:, 'tim'] = df_1.apply(timestamp_to_minutes, axis=1)
-        df_1.loc[:, 'sta'] = df_1.apply(compute_waiting_time, axis=1)
-    
-    if not df_3.empty:
-        df_3.loc[:, 'tim'] = df_3.apply(timestamp_to_minutes, axis=1)
-        df_3.loc[:, 'sta'] = df_3.apply(compute_waiting_time, axis=1)
-    
-
-    # 按照0、1、3开头分类
-    df_0_bs = final_df_bs[final_df_bs['c_uli'].str.startswith('0')]
-    df_0_bs = df_0_bs.reset_index(drop=True)  # 重置df_0_bs的索引
-
-    df_1_bs = final_df_bs[final_df_bs['c_uli'].str.startswith('1')]
-    df_1_bs = df_1_bs.reset_index(drop=True)  # 重置df_1_bs的索引
-
-    df_3_bs = final_df_bs[final_df_bs['c_uli'].str.startswith('3')]
-    df_3_bs = df_3_bs.reset_index(drop=True)  # 重置df_3_bs的索引
-    
-    return df_0, df_1, df_3, df_0_bs, df_1_bs, df_3_bs
+    return final_traj_df.reset_index(drop=True), final_df_bs.reset_index(drop=True)
 
 
 def timestamp_to_minutes(row):
@@ -153,7 +127,7 @@ def create_graph(df_traj, operator):
         uli_index_dict = json.load(file)
     
     # 应用映射函数并创建新列
-    df_traj['traj_index'] = df_traj['traj'].apply(lambda traj_list: [uli_index_dict.get(str(uli), uli) for uli in traj_list])
+    df_traj['traj_index'] = df_traj['traj'].apply(lambda traj_list: [uli_index_dict[str(uli)] for uli in traj_list])
 
     build_graph_from_txt(df_traj, operator)
         
@@ -282,7 +256,7 @@ def gen_all(df_traj, operator):
         trajlen = len(traj)
 
         # 映射 uli → index
-        mapped_traj = [uli_index_dict.get(str(uli), uli) for uli in traj]
+        mapped_traj = [uli_index_dict[str(uli)] for uli in traj]
 
         # 存入各个 dict 中
         result_dict.setdefault(trajlen, []).append(mapped_traj)
@@ -416,45 +390,32 @@ def main():
 
     embed_size = 64
     min_length, max_length = 50, 200
-    trajectory_parts = []
-    station_parts = []
-    holdout_parts = {}
+    prepared = 0
 
     for operator in ("0", "1", "3"):
-        split_dir = split_root / f"operator{operator}"
+        tag = f"operator{operator}"
+        split_dir = split_root / tag
         train_path = split_dir / "train.csv"
         holdout_path = split_dir / "holdout.csv"
         station_path = split_dir / "base_station_train.csv"
         if not train_path.is_file() or not holdout_path.is_file() or not station_path.is_file():
             raise FileNotFoundError(
-                f"Missing split files for operator{operator}; run privacy_eval/prepare_all_splits.sh first"
+                f"Missing split files for {tag}; run privacy_eval/prepare_all_splits.sh first"
             )
-        trajectory_parts.append(pd.read_csv(train_path, dtype={"c_uli": str}))
-        station_parts.append(pd.read_csv(station_path, dtype={"c_uli": str}))
-        holdout_parts[operator] = pd.read_csv(holdout_path, dtype={"c_uli": str})
 
-    df_train = pd.concat(trajectory_parts, ignore_index=True)
-    df_stations = pd.concat(station_parts, ignore_index=True)
-    df_stations = df_stations.drop_duplicates(subset=["c_uli"]).reset_index(drop=True)
+        df_train = pd.read_csv(train_path, dtype={"c_uli": str})
+        df_stations = pd.read_csv(station_path, dtype={"c_uli": str})
+        df_stations = df_stations.drop_duplicates(subset=["c_uli"]).reset_index(drop=True)
+        df_traj, df_bs = traj_station_preprocess(
+            df_train, df_stations, min_length, max_length
+        )
 
-    df_0, df_1, df_3, bs_0, bs_1, bs_3 = traj_station_preprocess(
-        df_train, df_stations, min_length, max_length
-    )
-    outputs = {
-        "0": (df_0, bs_0),
-        "1": (df_1, bs_1),
-        "3": (df_3, bs_3),
-    }
-
-    prepared = 0
-    for operator, (df_traj, df_bs) in outputs.items():
-        tag = f"operator{operator}"
         data_root = Path("../data") / tag
         if data_root.exists():
             shutil.rmtree(data_root)
 
         if df_traj.empty or df_bs.empty:
-            print(f"Skipping operator{operator}: no eligible training trajectories or stations")
+            print(f"Skipping {tag}: no eligible training trajectories or stations")
             continue
 
         (data_root / "extra_file").mkdir(parents=True, exist_ok=True)
@@ -467,28 +428,38 @@ def main():
         train_length_distribution = np.load(gen_dir / "length_distri.npy")
         np.save(gen_dir / "length_distri_train.npy", train_length_distribution)
 
-        holdout = holdout_parts[operator]
-        # Length counts do not require station IDs to be in the training vocabulary.
-        holdout_length_counts = (
-            holdout.groupby(["c_number", "c_day"]).size().value_counts().sort_index()
-        )
+        holdout = pd.read_csv(holdout_path, dtype={"c_uli": str})
+        station_vocab = set(df_bs["c_uli"].astype(str))
+        eligible_holdout_lengths = []
+        total_holdout_tracks = 0
+        for _, group in holdout.groupby(["c_number", "c_day"], sort=False):
+            total_holdout_tracks += 1
+            length = len(group)
+            locations = set(group["c_uli"].astype(str))
+            if min_length <= length <= max_length and locations.issubset(station_vocab):
+                eligible_holdout_lengths.append(length)
+
         holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
-        for length, count in holdout_length_counts.items():
-            if min_length <= length <= max_length:
-                holdout_distribution[int(length)] = int(count)
+        for length, count in Counter(eligible_holdout_lengths).items():
+            holdout_distribution[length] = count
         if holdout_distribution.sum() == 0:
             raise RuntimeError(
-                f"No eligible holdout trajectories remain for operator{operator} "
-                "within the configured length range"
+                f"No complete, in-vocabulary holdout trajectories remain for {tag}; "
+                "check the split station coverage and preprocessing filters"
             )
         np.save(gen_dir / "length_distri_holdout.npy", holdout_distribution)
         np.save(gen_dir / "length_distri.npy", holdout_distribution)
 
+        print(
+            f"{tag}: train trajectories={len(df_traj):,}, "
+            f"eligible holdout={len(eligible_holdout_lengths):,}/"
+            f"{total_holdout_tracks:,}, stations={len(df_bs):,}"
+        )
         road_embed(df_traj, df_bs, embed_size, tag)
         prepared += 1
 
     if prepared == 0:
-        raise RuntimeError("No operator artifacts were produced from the training split")
+        raise RuntimeError("No operator artifacts were produced from the training splits")
 
 
 if __name__ == "__main__":
