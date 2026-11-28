@@ -54,7 +54,7 @@ def traj_station_preprocess(df_traj, df_bs, min_length, max_length):
         if min_length <= group_length <= max_length:
             filtered_groups.append(group_data)
 
-    control_traj_df = pd.concat(filtered_groups, ignore_index=True)
+    control_traj_df = (\n        pd.concat(filtered_groups, ignore_index=True)\n        if filtered_groups else df_traj_fliter_station.iloc[0:0].copy()\n    )
 
     # 筛选轨迹中所有出现过的c_uli
     traj_uli_list = control_traj_df['c_uli'].unique().tolist()
