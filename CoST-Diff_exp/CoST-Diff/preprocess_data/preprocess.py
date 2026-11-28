@@ -352,7 +352,7 @@ def gen_all(df_traj, operator, min_len, max_len):
             continue
 
         # uli → 连续 index
-        mapped_traj = [uli_index_dict.get(str(uli), uli) for uli in traj]
+        mapped_traj = [uli_index_dict[str(uli)] for uli in traj]
 
         # === 序列级条件：weekday (0..6) ===
         weekday = get_weekday_from_cday(c_day)
@@ -593,22 +593,32 @@ def main():
                 np.load(gen_dir / "length_distri.npy"))
 
         holdout = pd.read_csv(holdout_path, dtype={"c_uli": str})
-        holdout = holdout[holdout["c_uli"].isin(set(df_b["c_uli"].astype(str)))]
-        holdout_length_counts = (
-            holdout.groupby(["c_number", "c_day"]).size().value_counts().sort_index()
-        )
+        station_vocab = set(df_b["c_uli"].astype(str))
+        eligible_holdout_lengths = []
+        total_holdout_tracks = 0
+        for _, group in holdout.groupby(["c_number", "c_day"], sort=False):
+            total_holdout_tracks += 1
+            length = len(group)
+            locations = set(group["c_uli"].astype(str))
+            if min_length <= length <= max_length and locations.issubset(station_vocab):
+                eligible_holdout_lengths.append(length)
+
         holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
-        for length, count in holdout_length_counts.items():
-            if min_length <= length <= max_length:
-                holdout_distribution[int(length)] = int(count)
+        for length, count in Counter(eligible_holdout_lengths).items():
+            holdout_distribution[length] = count
         if holdout_distribution.sum() == 0:
             raise RuntimeError(
                 f"No eligible holdout trajectories remain for operator{operator} "
-                "after applying the training station vocabulary"
+                "within the configured length range and training station vocabulary"
             )
         np.save(gen_dir / "length_distri_holdout.npy", holdout_distribution)
         np.save(gen_dir / "length_distri.npy", holdout_distribution)
 
+        print(
+            f"{tag}: train trajectories={len(df_t):,}, "
+            f"eligible holdout={len(eligible_holdout_lengths):,}/"
+            f"{total_holdout_tracks:,}, stations={len(df_b):,}"
+        )
         road_embed(df_t, df_b, embed_size, tag)
         prepared += 1
 
