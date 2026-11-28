@@ -468,7 +468,7 @@ def main():
         np.save(gen_dir / "length_distri_train.npy", train_length_distribution)
 
         holdout = holdout_parts[operator]
-        holdout = holdout[holdout["c_uli"].isin(set(df_bs["c_uli"].astype(str)))]
+        # Length counts do not require station IDs to be in the training vocabulary.
         holdout_lengths = holdout.groupby(["c_number", "c_day"]).size()
         holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
         for length, count in holdout_lengths.items():
@@ -477,7 +477,7 @@ def main():
         if holdout_distribution.sum() == 0:
             raise RuntimeError(
                 f"No eligible holdout trajectories remain for operator{operator} "
-                "after applying the training station vocabulary"
+                "within the configured length range"
             )
         np.save(gen_dir / "length_distri_holdout.npy", holdout_distribution)
         np.save(gen_dir / "length_distri.npy", holdout_distribution)
