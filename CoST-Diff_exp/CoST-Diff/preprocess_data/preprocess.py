@@ -1,4 +1,3 @@
-/Users/zoulinzi/.zprofile:3: no such file or directory: /usr/local/Homebrew/bin/brew
 from collections import Counter
 """
 ====================================================
