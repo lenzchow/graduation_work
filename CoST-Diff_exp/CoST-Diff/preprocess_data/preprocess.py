@@ -594,9 +594,11 @@ def main():
 
         holdout = pd.read_csv(holdout_path, dtype={"c_uli": str})
         holdout = holdout[holdout["c_uli"].isin(set(df_b["c_uli"].astype(str)))]
-        holdout_lengths = holdout.groupby(["c_number", "c_day"]).size()
+        holdout_length_counts = (
+            holdout.groupby(["c_number", "c_day"]).size().value_counts().sort_index()
+        )
         holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
-        for length, count in holdout_lengths.items():
+        for length, count in holdout_length_counts.items():
             if min_length <= length <= max_length:
                 holdout_distribution[int(length)] = int(count)
         if holdout_distribution.sum() == 0:
