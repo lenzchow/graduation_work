@@ -9,7 +9,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import torch
 import torch.optim as optim
 import numpy as np
-from utils.utils import save_json_data, create_dir, load_json_data, load_pt_data
+from utils.utils import save_json_data, create_dir, load_json_data
 from common.mbr import MBR
 from common.spatial_func import SPoint, distance
 from common.road_network import load_rn_shp
@@ -44,7 +44,6 @@ if __name__ == '__main__':
     parser.add_argument('--beta_start', type=float, default=0.0001, help='min beta')
     parser.add_argument('--beta_end', type=float, default=0.02, help='max beta')
     parser.add_argument('--pre_trained_dim', type=int, default=64, help='pre-trained dim of the road segment')
-    parser.add_argument('--embedding_hour_dim', type=int, default=32, help='pre-trained dim of the embedding matrix')
     parser.add_argument('--rdcl', type=int, default=10, help='stack layers on the denoise network')
     
     
@@ -80,7 +79,6 @@ if __name__ == '__main__':
             'beta_start': opts.beta_start,
             'beta_end': opts.beta_end,
             'pre_trained_dim': opts.pre_trained_dim,
-            'embedding_hour_dim': opts.embedding_hour_dim,
             'rdcl': opts.rdcl
         }
     elif opts.dataset == 'operator1':
@@ -109,7 +107,6 @@ if __name__ == '__main__':
             'beta_start': opts.beta_start,
             'beta_end': opts.beta_end,
             'pre_trained_dim': opts.pre_trained_dim,
-            'embedding_hour_dim': opts.embedding_hour_dim,
             'rdcl': opts.rdcl
         }
     elif opts.dataset == 'operator3':
@@ -138,7 +135,6 @@ if __name__ == '__main__':
             'beta_start': opts.beta_start,
             'beta_end': opts.beta_end,
             'pre_trained_dim': opts.pre_trained_dim,
-            'embedding_hour_dim': opts.embedding_hour_dim,
             'rdcl': opts.rdcl
         }
     
@@ -177,16 +173,14 @@ if __name__ == '__main__':
     model_save_path = './results/'+opts.dataset + '/'
     create_dir(model_save_path)
 
-    uli_index_dict = load_json_data(extra_info_dir,'uli_index_dict.json')
-    index_uli_dict = load_json_data(extra_info_dir,'index_uli_dict.json')
     index_areacode_dict = load_json_data(extra_info_dir,'index_areacode_dict.json')
     index_lat_lon_dict = load_json_data(extra_info_dir,'index_lat_lon_dict.json')
-    time_embedding_hour_matrix = load_pt_data(model_save_path, 'time_embedding_hour_matrix.pt')
 
     # spatial embedding
     spatial_A = load_graph_adj_mtx(UTG_file)
     spatial_A_trans = np.zeros((spatial_A.shape[0], spatial_A.shape[1])) + 1e-10
     spatial_A_trans[:,:] = spatial_A
+    args.id_size = spatial_A_trans.shape[0]
 
     f = open(pre_trained_road, mode = 'r')
     lines = f.readlines()
@@ -203,8 +197,8 @@ if __name__ == '__main__':
 
 
     
-    diff_model = diff_CSDI(args.hid_dim, args.hid_dim, opts.diff_T, args.hid_dim, args.pre_trained_dim, args.embedding_hour_dim, args.rdcl)
-    model = Diff_RNTraj(diff_model, diffusion_hyperparams, args.embedding_hour_dim).to(device)
+    diff_model = diff_CSDI(args.hid_dim, args.hid_dim, opts.diff_T, args.hid_dim, args.pre_trained_dim, args.rdcl)
+    model = Diff_RNTraj(diff_model, diffusion_hyperparams).to(device)
     model.apply(init_weights)  # learn how to init weights
     
     # print('model', str(model))
@@ -215,8 +209,6 @@ if __name__ == '__main__':
     start_time = time.time()
     generate_data(model, 
                   spatial_A_trans, 
-                  index_uli_dict, 
                   index_lat_lon_dict, 
                   index_areacode_dict, 
-                  time_embedding_hour_matrix,
                   args, SE, formatted_time)

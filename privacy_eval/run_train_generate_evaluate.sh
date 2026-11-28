@@ -43,8 +43,6 @@ ensure_preprocessed() {
             "$data/extra_file/index_areacode_dict.json"
             "$data/extra_file/index_lat_lon_dict.json"
             "$data/gen_all/index_seqs.bin"
-            "$data/gen_all/tim_seqs.bin"
-            "$data/gen_all/sta_seqs.bin"
             "$data/gen_all/length_distri.npy"
         )
         if [[ "$model" == "cost" ]]; then
@@ -167,9 +165,11 @@ for model in $MODELS; do
         "$PYTHON_BIN" "$ROOT/privacy_eval/evaluate_release.py" \
             --model "$model" --operator "$operator" --generated-dir "$generated_dir" \
             --output "$REPORT_DIR/${model}_${operator}_release_${report_tag}.json"
-        "$PYTHON_BIN" "$ROOT/privacy_eval/evaluate_temporal_exposure.py" \
-            --model "$model" --operator "$operator" --generated-dir "$generated_dir" \
-            --output "$REPORT_DIR/${model}_${operator}_temporal_${report_tag}.json"
+        if [[ "$model" == "cost" ]]; then
+            "$PYTHON_BIN" "$ROOT/privacy_eval/evaluate_temporal_exposure.py" \
+                --model "$model" --operator "$operator" --generated-dir "$generated_dir" \
+                --output "$REPORT_DIR/${model}_${operator}_temporal_${report_tag}.json"
+        fi
         "$PYTHON_BIN" "$ROOT/privacy_eval/evaluate_spatial_near_duplicates.py" \
             --model "$model" --operator "$operator" --generated-dir "$generated_dir" \
             --output "$REPORT_DIR/${model}_${operator}_spatial_near_duplicates_${report_tag}.json"

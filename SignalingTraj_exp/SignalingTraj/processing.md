@@ -37,12 +37,12 @@ SignalingTraj applies its existing station-frequency filter after splitting, so 
 
 ## Verification limits
 
-The repository was updated and reviewed through GitHub. This session could not start a local terminal and did not access the school server, so splitting, preprocessing, GPU training, and model generation have not been executed here. Run the commands above on the server and inspect each `split_audit.json` before training.
+Local syntax checks and spatial-only contract checks pass. No server GPU training or generation was run during this correction; the existing server process was left untouched. Because the model architecture changed, retrain SignalingTraj before generating new outputs. Existing CoST-Diff runs and checkpoints are unaffected.
 
 
 ## Release-format and first-stage privacy checks
 
-- The generation writer emits plain numeric CSV fields for each row, so the release parser can read station indices and time values without PyTorch tensor representations.
+- The generation writer emits spatial station-index rows only; SignalingTraj outputs contain no generated calendar-time values.
 - The shared `privacy_eval/evaluate_release.py` reads this model's exact generated output directory, maps station indices back to original station IDs, and compares user-day station sequences with the split training and holdout sets.
 - The report includes exact sequence overlap, rare/unseen transition exposure, and an exploratory black-box distance-based membership signal. These are preliminary empirical checks, not a formal privacy guarantee.
 
@@ -50,6 +50,12 @@ The repository was updated and reviewed through GitHub. This session could not s
 
 - `privacy_eval/audit_signaling_graph.py` compares saved graph edges with transitions in `train.csv`, checks graph/embedding dimensions, and records artifact hashes. Because the pre-existing graph and embedding files do not contain a preprocessing provenance manifest, the report cannot prove when or from which rows an old embedding was fitted.
 - `privacy_eval/evaluate_release.py` checks spatial exact repetition and rare transitions, and reports an exploratory black-box membership signal using train-versus-holdout candidates.
-- `privacy_eval/evaluate_spatial_near_duplicates.py` and `privacy_eval/evaluate_temporal_exposure.py` screen generated releases for spatial and elapsed-time similarity. These are exposure screens, not standalone privacy guarantees.
-- White-box MIA is not implemented. The current training code does not expose a validated per-trajectory score, and the SignalingTraj model file currently fails Python parsing. Do not interpret the black-box similarity score as a white-box result.
-- The integrated runner is `privacy_eval/run_train_generate_evaluate.sh`. It does not rerun the split or preprocessing. It stops at syntax preflight while `models/model.py` remains invalid.
+- `privacy_eval/evaluate_spatial_near_duplicates.py` screens SignalingTraj outputs for spatial near-duplicates. Temporal exposure evaluation applies to CoST-Diff, which generates time information.
+- White-box MIA is not implemented. The current training code does not expose a validated per-trajectory score. Do not interpret the black-box similarity score as a white-box result.
+- The integrated runner is `privacy_eval/run_train_generate_evaluate.sh`. It does not rerun the split or preprocessing.
+
+## Spatial-only model correction
+
+- Restored the SignalingTraj model interface to consume base-station embedding sequences only. Its diffusion-step embedding remains because it represents the DDPM noise step, not a real trajectory timestamp.
+- Removed calendar-hour embedding channels, temporal smoothness loss, timestamp inputs to training, and timestamp outputs from generation. Timestamps remain in raw data preprocessing only to sort each day's station visits into chronological order.
+- Generation now writes four columns per visit (area code, latitude, longitude, station index). Release evaluation reads that spatial-only format; the elapsed-time exposure check is skipped for SignalingTraj.

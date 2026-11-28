@@ -11,21 +11,7 @@ def std_normal(size):
 
     return torch.normal(0, 1, size=size).cuda()
 
-# 预计算Mtime矩阵（全局变量）
-def precompute_mtime_tensor(N_time):
-    M = torch.eye(N_time).cuda()
-    M = M - torch.diag(torch.ones(N_time - 1).cuda(), diagonal=1) - torch.diag(torch.ones(N_time - 1).cuda(), diagonal=-1)
-    M[0, N_time-1] = -1.0
-    M[N_time-1, 0] = 1.0
-    return M
-
-
-# 初始化Mtime矩阵（假设N_time已知，例如24小时）
-N_time = 24*7  # 根据实际时间槽数量设置
-Mtime = precompute_mtime_tensor(N_time)
-
-
-def diff_forward_x0_constraint(net, x, diffusion_hyperparams, BS_Embedding, spatial_A_trans, embedding_hour_dim, time_hour_embedding):
+def diff_forward_x0_constraint(net, x, diffusion_hyperparams, SE, spatial_A_trans):
     """
     x: vectorized RNTraj
     """
@@ -48,22 +34,17 @@ def diff_forward_x0_constraint(net, x, diffusion_hyperparams, BS_Embedding, spat
     xt_noise = noise_func(pred_noise, z)  #将预测的x0与真实的x0计算loss
     
     x0_hat = (xt - torch.sqrt(1-Alpha_bar[diffusion_steps]) * pred_noise) / torch.sqrt(Alpha_bar[diffusion_steps])
-    x0_hat = x0_hat[:, :, embedding_hour_dim : ]  # B, T, F
+    x0_loss = noise_func(x0_hat, x)
 
-    x0_loss = noise_func(x0_hat, x[:,:,embedding_hour_dim :])
-
-    id_sim = torch.einsum('btf,nf->btn',x0_hat,BS_Embedding)
+    id_sim = torch.einsum('btf,nf->btn',x0_hat,SE)
     id_sim = id_sim.argmax(-1)
 
     mask = spatial_A_trans[id_sim[:, :-1], id_sim[:, 1:]] == 1e-10
     loss = torch.sum(mask).float()
     
-    # 时间损失计算（使用预计算的Mtime矩阵）
-    time_loss = torch.norm(torch.matmul(Mtime, time_hour_embedding), p='fro') ** 2
+    return xt_noise, loss, x0_loss
 
-    return xt_noise, loss, x0_loss, time_loss
-
-def cal_x0_from_noise_ddpm(net, diffusion_hyperparams, batchsize, length, feature):
+def cal_x0_from_noise_ddpm(net, diffusion_hyperparams, batchsize, length,  feature):
     _dh = diffusion_hyperparams
     T, Alpha_bar, Alpha = _dh["T"], _dh["alpha_bar"], _dh["alpha"]
     

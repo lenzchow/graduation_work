@@ -45,21 +45,20 @@ class DiffusionEmbedding(nn.Module):
         return table
 
 class diff_CSDI(nn.Module):
-    def __init__(self, channels, inputdim, num_steps, embedding_dim, pre_dim, embedding_hour_dim, rdcl):
+    def __init__(self, channels, inputdim, num_steps, embedding_dim, pre_dim, rdcl):
         super().__init__()
         self.channels = channels
         self.pre_dim = pre_dim
-        self.embedding_hour_dim = embedding_hour_dim
         self.rdcl = rdcl
         self.diffusion_embedding = DiffusionEmbedding(
             num_steps,
             embedding_dim,
         )
 
-        self.input_projection = Conv1d_with_init(self.pre_dim + self.embedding_hour_dim, self.channels, 1)
+        self.input_projection = Conv1d_with_init(self.pre_dim, self.channels, 1)
         self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
         self.output_projection2 = Conv1d_with_init(self.channels, self.channels, 1)
-        self.output_layer = nn.Linear(self.channels, self.pre_dim + self.embedding_hour_dim)
+        self.output_layer = nn.Linear(self.channels, self.pre_dim)
         
         nn.init.zeros_(self.output_projection2.weight)
 

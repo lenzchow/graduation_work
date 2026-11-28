@@ -56,13 +56,9 @@ if __name__ == '__main__':
     parser.add_argument('--beta_start', type=float, default=0.0001, help='min beta')
     parser.add_argument('--beta_end', type=float, default=0.02, help='max beta')
     parser.add_argument('--pre_trained_dim', type=int, default=64, help='pre-trained dim of the road segment')
-    parser.add_argument('--embedding_hour_dim', type=int, default=32, help='pre-trained dim of the embedding matrix')
-    parser.add_argument('--time_granularity', type=int, default=24*7, help='How many days does it take to generate')
     parser.add_argument('--rdcl', type=int, default=10, help='stack layers on the denoise network')
 
     # model params
-    parser.add_argument('--tim_embed_hid1', type=int, default=128, help='时间嵌入隐藏层1')
-    parser.add_argument('--tim_embed_hid2', type=int, default=256, help='时间嵌入隐藏层2')
     
     
     opts = parser.parse_args()
@@ -155,8 +151,6 @@ if __name__ == '__main__':
             'beta_start': opts.beta_start,
             'beta_end': opts.beta_end,
             'pre_trained_dim': opts.pre_trained_dim,
-            'tim_embed_hid1': opts.tim_embed_hid1,
-            'tim_embed_hid2':opts.tim_embed_hid2,
             'rdcl': opts.rdcl
         }
     elif opts.dataset == 'operator1':
@@ -184,8 +178,6 @@ if __name__ == '__main__':
             'beta_start': opts.beta_start,
             'beta_end': opts.beta_end,
             'pre_trained_dim': opts.pre_trained_dim,
-            'tim_embed_hid1': opts.tim_embed_hid1,
-            'tim_embed_hid2':opts.tim_embed_hid2,
             'rdcl': opts.rdcl
         }
     elif opts.dataset == 'operator3':
@@ -213,8 +205,6 @@ if __name__ == '__main__':
             'beta_start': opts.beta_start,
             'beta_end': opts.beta_end,
             'pre_trained_dim': opts.pre_trained_dim,
-            'tim_embed_hid1': opts.tim_embed_hid1,
-            'tim_embed_hid2':opts.tim_embed_hid2,
             'rdcl': opts.rdcl
         }
 
@@ -233,13 +223,8 @@ if __name__ == '__main__':
         all_index_seqs = pickle.load(f)
         f.close()
     
-    # load base_station index dataset   
-    with open(train_trajs_dir + 'timestamp_seqs.bin', 'rb') as f:  #路段序列
-        all_timestamp_seqs = pickle.load(f)
-        f.close()
-
-    diff_model = diff_CSDI(args.hid_dim, args.hid_dim, opts.diff_T, args.hid_dim, args.pre_trained_dim, args.embedding_hour_dim, args.rdcl)
-    model = Diff_RNTraj(diff_model, diffusion_hyperparams, args_dict, args.embedding_hour_dim, args.time_granularity).to(device)
+    diff_model = diff_CSDI(args.hid_dim, args.hid_dim, opts.diff_T, args.hid_dim, args.pre_trained_dim, args.rdcl)
+    model = Diff_RNTraj(diff_model, diffusion_hyperparams).to(device)
     model.apply(init_weights)  # learn how to init weights
     
     # print('model', str(model))
@@ -247,7 +232,7 @@ if __name__ == '__main__':
     with open(model_save_path+'logging.txt', 'a+') as f:
         f.write('model' + str(model) + '\n')
         
-    ls_train_loss, ls_train_const_loss, ls_train_diff_loss, ls_train_x0_loss, ls_train_time_hour_loss = [], [], [], [], []
+    ls_train_loss, ls_train_const_loss, ls_train_diff_loss, ls_train_x0_loss = [], [], [], []
     
     dict_train_loss = {}
     
@@ -263,14 +248,9 @@ if __name__ == '__main__':
     for epoch in tqdm(range(args.n_epochs)):
         start_time = time.time()
 
-        new_log_vars, train_loss, train_const_loss, train_diff_loss, train_x0_loss, time_hour_loss, time_hour_embedding = \
-                train(model, spatial_A_trans, 
-                      SE, 
-                      all_timestamp_seqs, 
-                      all_index_seqs, 
-                      optimizer, 
-                      log_vars, 
-                      args, diffusion_hyperparams)
+        new_log_vars, train_loss, train_const_loss, train_diff_loss, train_x0_loss = train(
+            model, spatial_A_trans, SE, all_index_seqs, optimizer, log_vars, args, diffusion_hyperparams
+        )
         scheduler.step()
         
 
@@ -278,13 +258,11 @@ if __name__ == '__main__':
         ls_train_const_loss.append(train_const_loss)
         ls_train_diff_loss.append(train_diff_loss)
         ls_train_x0_loss.append(train_x0_loss)
-        ls_train_time_hour_loss.append(time_hour_loss)
 
         dict_train_loss['train_ttl_loss'] = ls_train_loss
         dict_train_loss['train_const_loss'] = ls_train_const_loss
         dict_train_loss['train_diff_loss'] = ls_train_diff_loss
         dict_train_loss['train_x0_loss'] = ls_train_x0_loss
-        dict_train_loss['train_time_hour_loss'] = ls_train_time_hour_loss
 
         end_time = time.time()
         epoch_mins, epoch_secs = epoch_time(start_time, end_time)
@@ -295,10 +273,6 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), model_save_path + 'val-best-model.pt')
 
 
-        if epoch + 1 == args.n_epochs:
-            weights = time_hour_embedding.detach().cpu()
-            torch.save(weights, model_save_path + 'time_embedding_hour_matrix.pt')
-
 
         # logging 是 log.txt
         logging.info('Epoch: ' + str(epoch + 1) + ' Time: ' + str(epoch_mins) + 'm' + str(epoch_secs) + 's')
@@ -307,9 +281,7 @@ if __name__ == '__main__':
         logging.info('\tTrain Loss:' + str(train_loss) +
                         '\tTrain Const Loss:' + str(train_const_loss) +
                         '\tTrain Diff Loss:' + str(train_diff_loss) +
-                        '\tTrain X0 Loss:' + str(train_x0_loss) +
-                        '\tTrain Time Hour Loss:' + str(time_hour_loss) 
-                        )
+                        '\tTrain X0 Loss:' + str(train_x0_loss))
         
         # logging.txt
         with open(model_save_path+'logging.txt', 'a+') as f:
@@ -317,9 +289,7 @@ if __name__ == '__main__':
             f.write('\tTrain Loss:' + str(train_loss) +
                         '\tTrain Const Loss:' + str(train_const_loss) +
                         '\tTrain Diff Loss:' + str(train_diff_loss) +
-                        '\tTrain X0 Loss:' + str(train_x0_loss) +
-                        '\tTrain Time Hour Loss:' + str(time_hour_loss) +
-                        '\n')
+                        '\tTrain X0 Loss:' + str(train_x0_loss) + '\n')
         torch.save(model.state_dict(), model_save_path + 'train-mid-model.pt')
         save_json_data(dict_train_loss, model_save_path, "train_loss.json")
                 

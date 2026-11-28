@@ -11,44 +11,43 @@ from map_matching.candidate_point import get_candidates, CandidatePoint
 from utils.utils import load_json_data
 
 
-def touli(index_uli_dict, 
-          index_lat_lon_dict, 
-          index_areacode_dict, 
-          times, rids, 
-          parameters, 
-          min_len, max_len, 
-          formatted_time, 
-          save_txt_num = 0 ):
-
-    rids = rids.permute(1,0)
-    times = times.permute(1,0)
-
+def touli(
+    index_lat_lon_dict,
+    index_areacode_dict,
+    rids,
+    parameters,
+    min_len,
+    max_len,
+    formatted_time,
+    save_txt_num=0,
+):
+    rids = rids.permute(1, 0)
     batch_size = rids.size(1)
-    trg_len = rids.size(0)
-    seqs = torch.zeros(trg_len, batch_size, 2).to("cuda:0")
-    traj_save_path = './generate_data/{}_{}_diffT{}_trajlen{}-{}_curTime{}/'.format(
+    sequence_length = rids.size(0)
+    output_dir = "./generate_data/{}_{}_diffT{}_trajlen{}-{}_curTime{}/".format(
         parameters.dataset,
         parameters.embed_mode,
         parameters.diff_T,
         min_len,
         max_len,
-        formatted_time)
-    if not os.path.exists(traj_save_path):
-        os.makedirs(traj_save_path)
-    with open(traj_save_path + str(save_txt_num) +".txt", 'a+') as f:
-        for bs in range(batch_size):
-            f.write('#, trajectory num :{}\n'.format(bs))
-            for i in range(trg_len):
-                time = times[i][bs]
-                rid = rids[i][bs]
-                uli = index_uli_dict.get(str(rid.item()),rid)
-                areacode = index_areacode_dict.get(str(rid.item()),rid)
-                lat, lon = index_lat_lon_dict.get(str(rid.item()),rid)[0], index_lat_lon_dict.get(str(rid.item()),rid)[1]
-                if rid >= parameters.id_size: continue #parameters.id_size:continue
-                
-                f.write("{}, {}, {}, {}, {}\n".format(areacode, lat, lon, int(rid.item()), float(time.item())))
-            # print("----------------")
-    return seqs
+        formatted_time,
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, f"{save_txt_num}.txt"), "a+", encoding="utf-8") as output:
+        for batch_index in range(batch_size):
+            output.write(f"#, trajectory num :{batch_index}\n")
+            for step in range(sequence_length):
+                rid = rids[step, batch_index]
+                if rid >= parameters.id_size:
+                    continue
+                station_index = str(int(rid.item()))
+                areacode = index_areacode_dict[station_index]
+                lat, lon = index_lat_lon_dict[station_index]
+                output.write(
+                    "{}, {}, {}, {}\n".format(
+                        areacode, lat, lon, int(rid.item())
+                    )
+                )
 
 
 #####################################################################################################

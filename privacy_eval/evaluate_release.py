@@ -21,7 +21,7 @@ MODEL_LAYOUT = {
         "split": "SignalingTraj_exp/SignalingTraj",
         "min_length": 50,
         "max_length": 200,
-        "generated_columns": 5,
+        "generated_columns": 4,
     },
     "cost": {
         "root": Path("CoST-Diff_exp/CoST-Diff"),
@@ -140,8 +140,8 @@ def read_generated_trajectories(
                 if station is None:
                     unmapped_rows += 1
                     raise ValueError(f"Unknown generated station index {rid!r} in {path}:{line_number}")
-                # Validate the emitted time and, for CoST-Diff, interval fields.
-                scalar_float(columns[4], path, line_number)
+                if expected_columns >= 5:
+                    scalar_float(columns[4], path, line_number)
                 if expected_columns == 6:
                     scalar_float(columns[5], path, line_number)
                 current.append(station)
