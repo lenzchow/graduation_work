@@ -469,9 +469,11 @@ def main():
 
         holdout = holdout_parts[operator]
         # Length counts do not require station IDs to be in the training vocabulary.
-        holdout_lengths = holdout.groupby(["c_number", "c_day"]).size()
+        holdout_length_counts = (
+            holdout.groupby(["c_number", "c_day"]).size().value_counts().sort_index()
+        )
         holdout_distribution = np.zeros(max_length + 1, dtype=np.int64)
-        for length, count in holdout_lengths.items():
+        for length, count in holdout_length_counts.items():
             if min_length <= length <= max_length:
                 holdout_distribution[int(length)] = int(count)
         if holdout_distribution.sum() == 0:
